@@ -1,0 +1,1075 @@
+<!doctype html>
+<html lang="en" data-theme="dark">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Riphah Lead CRM — every property enquiry, worked to a decision</title>
+<meta name="description" content="The sales desk for Riphah Properties. Leads from the AI assistant and Meta ads, deduplicated, tiered and tracked to a decision.">
+<style>
+/* ============================================================ foundations */
+/* Tokens mirror the CRM app's palette so the landing page and the product do
+   not read as two different companies. Dark is the default here — the hero
+   gradients are built for it — but light is fully supported. */
+:root {
+  --page: #0b0d0f;
+  --surface: #14181c;
+  --surface-2: #1a1f24;
+  --ink: #f2f4f6;
+  --ink-2: #b3bcc4;
+  --muted: #7d878f;
+  --hairline: rgba(255,255,255,.10);
+  --brand: #2a78d6;
+  --brand-2: #6d5ef5;
+  --hot: #d03b3b;
+  --warm: #eda100;
+  --cold: #2a78d6;
+  --good: #1baf7a;
+  --radius: 16px;
+  --shadow: 0 20px 60px rgba(0,0,0,.45);
+  --max: 1140px;
+}
+:root[data-theme="light"] {
+  --page: #f4f4f1;
+  --surface: #ffffff;
+  --surface-2: #fbfbf9;
+  --ink: #0b0b0b;
+  --ink-2: #52514e;
+  --muted: #898781;
+  --hairline: rgba(11,11,11,.10);
+  --shadow: 0 20px 50px rgba(11,11,11,.10);
+}
+
+* { box-sizing: border-box; }
+html { scroll-behavior: smooth; }
+body {
+  margin: 0; background: var(--page); color: var(--ink);
+  font: 16px/1.6 ui-sans-serif, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  -webkit-font-smoothing: antialiased; overflow-x: hidden;
+}
+h1, h2, h3 { line-height: 1.15; letter-spacing: -.02em; margin: 0; }
+p { margin: 0; }
+a { color: inherit; text-decoration: none; }
+.wrap { max-width: var(--max); margin: 0 auto; padding: 0 24px; }
+.eyebrow {
+  font-size: 12px; text-transform: uppercase; letter-spacing: .12em;
+  color: var(--brand); font-weight: 600;
+}
+
+/* Every animation in this file is gated on this. A landing page that moves
+   constantly is unusable for anyone with vestibular sensitivity, and the
+   content has to stand up without the motion. */
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+  *, *::before, *::after {
+    animation-duration: .001ms !important; animation-iteration-count: 1 !important;
+    transition-duration: .001ms !important;
+  }
+  .reveal { opacity: 1 !important; transform: none !important; }
+}
+
+/* ================================================================== nav */
+header.nav {
+  position: sticky; top: 0; z-index: 50;
+  backdrop-filter: blur(14px);
+  background: color-mix(in srgb, var(--page) 82%, transparent);
+  border-bottom: 1px solid transparent;
+  transition: border-color .25s, background .25s;
+}
+header.nav.stuck { border-bottom-color: var(--hairline); }
+.nav-in { display: flex; align-items: center; gap: 24px; height: 66px; }
+.logo { display: flex; align-items: center; gap: 10px; font-weight: 700; letter-spacing: -.02em; }
+.logo .mark {
+  width: 28px; height: 28px; border-radius: 8px; display: grid; place-items: center;
+  background: linear-gradient(135deg, var(--brand), var(--brand-2));
+  color: #fff; font-size: 14px; font-weight: 800;
+}
+.nav-links { display: flex; gap: 22px; margin-left: 8px; }
+.nav-links a { color: var(--ink-2); font-size: 14px; position: relative; }
+/* Underline grows from the left rather than fading — cheaper to read at a glance. */
+.nav-links a::after {
+  content: ""; position: absolute; left: 0; bottom: -4px; height: 2px; width: 0;
+  background: var(--brand); transition: width .22s ease;
+}
+.nav-links a:hover { color: var(--ink); }
+.nav-links a:hover::after { width: 100%; }
+.grow { flex: 1; }
+
+.btn {
+  display: inline-flex; align-items: center; gap: 8px; cursor: pointer;
+  border: 1px solid var(--hairline); background: var(--surface); color: var(--ink);
+  padding: 10px 18px; border-radius: 999px; font: inherit; font-size: 14px;
+  font-weight: 600; transition: transform .18s ease, box-shadow .18s ease, background .18s;
+  white-space: nowrap;
+}
+.btn:hover { transform: translateY(-2px); }
+.btn.primary {
+  background: linear-gradient(135deg, var(--brand), var(--brand-2));
+  border-color: transparent; color: #fff;
+  box-shadow: 0 8px 24px rgba(42,120,214,.35);
+}
+.btn.primary:hover { box-shadow: 0 14px 34px rgba(42,120,214,.45); }
+.btn.ghost { background: transparent; }
+.btn.lg { padding: 14px 26px; font-size: 15px; }
+/* The arrow leans forward on hover. One small affordance, no layout shift. */
+.btn .arrow { transition: transform .18s ease; }
+.btn:hover .arrow { transform: translateX(3px); }
+
+/* ================================================================ hero */
+.hero { position: relative; padding: 92px 0 40px; overflow: hidden; }
+/* Aurora: three slow-drifting blobs. Blurred heavily so the edges never read as
+   shapes, which is what separates this from a decorative circle. */
+.aurora { position: absolute; inset: -20% -10% auto -10%; height: 720px; z-index: 0;
+          pointer-events: none; filter: blur(90px); opacity: .55; }
+.blob { position: absolute; border-radius: 50%; }
+.blob.b1 { width: 520px; height: 520px; left: 4%;  top: 0;
+           background: radial-gradient(circle, #2a78d6, transparent 68%);
+           animation: drift1 22s ease-in-out infinite; }
+.blob.b2 { width: 460px; height: 460px; right: 6%; top: 40px;
+           background: radial-gradient(circle, #6d5ef5, transparent 68%);
+           animation: drift2 27s ease-in-out infinite; }
+.blob.b3 { width: 380px; height: 380px; left: 42%; top: 190px;
+           background: radial-gradient(circle, #1baf7a, transparent 70%);
+           animation: drift3 31s ease-in-out infinite; }
+@keyframes drift1 { 0%,100%{transform:translate(0,0) scale(1)} 50%{transform:translate(70px,50px) scale(1.12)} }
+@keyframes drift2 { 0%,100%{transform:translate(0,0) scale(1)} 50%{transform:translate(-80px,40px) scale(1.08)} }
+@keyframes drift3 { 0%,100%{transform:translate(0,0) scale(1)} 50%{transform:translate(40px,-60px) scale(1.15)} }
+
+.hero-in { position: relative; z-index: 1; text-align: center; }
+.hero h1 { font-size: clamp(38px, 6.2vw, 68px); font-weight: 800; margin: 18px 0 0; }
+/* Shimmer sweeps across the gradient text once every few seconds. */
+.shine {
+  background: linear-gradient(100deg, var(--brand) 0%, var(--brand-2) 35%, #4fd1c5 55%, var(--brand) 80%);
+  background-size: 220% 100%;
+  -webkit-background-clip: text; background-clip: text; color: transparent;
+  animation: shine 7s linear infinite;
+}
+@keyframes shine { 0% { background-position: 200% 0; } 100% { background-position: -20% 0; } }
+.hero p.lede {
+  max-width: 640px; margin: 20px auto 0; color: var(--ink-2); font-size: 18px;
+}
+.hero-cta { display: flex; gap: 12px; justify-content: center; margin-top: 30px; flex-wrap: wrap; }
+.hero-note { margin-top: 14px; font-size: 13px; color: var(--muted); }
+
+/* Staggered entrance. Each child waits its turn so the eye is led down the page
+   instead of everything arriving at once. */
+.rise { opacity: 0; transform: translateY(18px); animation: rise .7s cubic-bezier(.2,.7,.3,1) forwards; }
+@keyframes rise { to { opacity: 1; transform: none; } }
+
+/* ==================================================== product mock (hero) */
+.mock-wrap { position: relative; z-index: 1; margin: 54px auto 0; max-width: 1000px;
+             perspective: 1600px; }
+.mock {
+  border: 1px solid var(--hairline); border-radius: 18px; overflow: hidden;
+  background: var(--surface); box-shadow: var(--shadow);
+  transform: rotateX(9deg) translateY(0); transform-origin: top center;
+  transition: transform .5s cubic-bezier(.2,.7,.3,1);
+}
+.mock-wrap:hover .mock { transform: rotateX(3deg) translateY(-6px); }
+.mock-bar { display: flex; align-items: center; gap: 7px; padding: 11px 14px;
+            border-bottom: 1px solid var(--hairline); background: var(--surface-2); }
+.dot { width: 10px; height: 10px; border-radius: 50%; background: var(--hairline); }
+.mock-bar .label { margin-left: 8px; font-size: 12px; color: var(--muted); }
+.mock-body { padding: 18px; display: grid; gap: 14px; }
+.mock-tiles { display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; }
+.mtile { background: var(--surface-2); border: 1px solid var(--hairline);
+         border-radius: 12px; padding: 12px 14px; }
+.mtile .k { font-size: 11px; color: var(--muted); text-transform: uppercase; letter-spacing: .08em; }
+.mtile .v { font-size: 24px; font-weight: 700; margin-top: 4px; }
+.mtile.hot .v { color: var(--hot); }
+
+/* Bars grow from zero when the mock scrolls in, then hold. */
+.mock-chart { display: flex; align-items: flex-end; gap: 8px; height: 132px;
+              padding: 12px; background: var(--surface-2);
+              border: 1px solid var(--hairline); border-radius: 12px; }
+.bar { flex: 1; border-radius: 5px 5px 0 0; height: 0;
+       background: linear-gradient(180deg, var(--brand), rgba(42,120,214,.35));
+       transition: height .9s cubic-bezier(.2,.7,.3,1); }
+.bar:nth-child(3n) { background: linear-gradient(180deg, var(--brand-2), rgba(109,94,245,.3)); }
+.bar:last-child { background: linear-gradient(180deg, var(--hot), rgba(208,59,59,.3)); }
+
+/* ============================================================== marquee */
+.strip { border-top: 1px solid var(--hairline); border-bottom: 1px solid var(--hairline);
+         margin-top: 74px; padding: 18px 0; background: var(--surface); overflow: hidden; }
+.strip .cap { text-align: center; font-size: 12px; color: var(--muted);
+              text-transform: uppercase; letter-spacing: .12em; margin-bottom: 14px; }
+.marquee { display: flex; gap: 44px; width: max-content; animation: slide 26s linear infinite; }
+.strip:hover .marquee { animation-play-state: paused; }
+@keyframes slide { from { transform: translateX(0); } to { transform: translateX(-50%); } }
+.marquee span { color: var(--ink-2); font-weight: 600; font-size: 15px; white-space: nowrap;
+                display: flex; align-items: center; gap: 9px; }
+.pip { width: 7px; height: 7px; border-radius: 50%; background: var(--good); }
+.pip.pending { background: var(--warm); }
+
+/* ============================================================== sections */
+section.band { padding: 96px 0; }
+.head { text-align: center; max-width: 680px; margin: 0 auto 52px; }
+.head h2 { font-size: clamp(27px, 3.7vw, 40px); font-weight: 800; margin: 12px 0 0; }
+.head p { color: var(--ink-2); margin-top: 14px; font-size: 17px; }
+
+/* Scroll reveal, driven by IntersectionObserver so it fires once and stays. */
+.reveal { opacity: 0; transform: translateY(24px);
+          transition: opacity .65s ease, transform .65s cubic-bezier(.2,.7,.3,1); }
+.reveal.in { opacity: 1; transform: none; }
+
+.cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(268px, 1fr)); gap: 18px; }
+.card {
+  position: relative; background: var(--surface); border: 1px solid var(--hairline);
+  border-radius: var(--radius); padding: 26px 24px; overflow: hidden;
+  transition: transform .28s cubic-bezier(.2,.7,.3,1), border-color .28s, box-shadow .28s;
+}
+.card:hover { transform: translateY(-6px); border-color: color-mix(in srgb, var(--brand) 45%, transparent);
+              box-shadow: 0 18px 44px rgba(0,0,0,.28); }
+/* A soft glow tracks the cursor across the card. Pure CSS from JS-set vars. */
+.card::before {
+  content: ""; position: absolute; inset: 0; opacity: 0; transition: opacity .28s;
+  background: radial-gradient(340px circle at var(--mx,50%) var(--my,0%),
+              color-mix(in srgb, var(--brand) 16%, transparent), transparent 65%);
+}
+.card:hover::before { opacity: 1; }
+.card .ico {
+  width: 42px; height: 42px; border-radius: 11px; display: grid; place-items: center;
+  font-size: 19px; margin-bottom: 16px;
+  background: color-mix(in srgb, var(--brand) 16%, transparent);
+  border: 1px solid color-mix(in srgb, var(--brand) 30%, transparent);
+}
+.card h3 { font-size: 17px; }
+.card p { color: var(--ink-2); font-size: 14.5px; margin-top: 9px; }
+
+/* ============================================================ pipeline */
+.flow { display: grid; grid-template-columns: repeat(auto-fit, minmax(190px, 1fr)); gap: 16px; }
+.step { position: relative; background: var(--surface); border: 1px solid var(--hairline);
+        border-radius: var(--radius); padding: 24px 20px; }
+.step .n {
+  width: 30px; height: 30px; border-radius: 50%; display: grid; place-items: center;
+  font-size: 13px; font-weight: 700; color: #fff; margin-bottom: 14px;
+  background: linear-gradient(135deg, var(--brand), var(--brand-2));
+}
+.step h3 { font-size: 15.5px; }
+.step p { color: var(--ink-2); font-size: 14px; margin-top: 8px; }
+/* The connector pulses along its length, so the eye follows the direction of
+   flow rather than treating the steps as an unordered set. */
+.step::after {
+  content: ""; position: absolute; top: 39px; right: -16px; width: 16px; height: 2px;
+  background: linear-gradient(90deg, var(--brand), transparent);
+  animation: pulse 2.4s ease-in-out infinite;
+}
+.step:last-child::after { display: none; }
+@keyframes pulse { 0%,100% { opacity: .25; } 50% { opacity: 1; } }
+@media (max-width: 860px) { .step::after { display: none; } }
+
+/* ============================================================== metrics */
+.metrics { background: var(--surface); border-top: 1px solid var(--hairline);
+           border-bottom: 1px solid var(--hairline); padding: 62px 0; }
+.mrow { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+        gap: 30px; text-align: center; }
+.metric .v { font-size: clamp(32px, 4.6vw, 48px); font-weight: 800;
+             background: linear-gradient(135deg, var(--brand), var(--brand-2));
+             -webkit-background-clip: text; background-clip: text; color: transparent;
+             font-variant-numeric: tabular-nums; }
+.metric .k { color: var(--muted); font-size: 13.5px; margin-top: 6px; }
+
+/* ================================================================== cta */
+.cta { position: relative; text-align: center; padding: 104px 0; overflow: hidden; }
+.cta .glow {
+  position: absolute; left: 50%; top: 40%; width: 780px; height: 420px;
+  transform: translate(-50%,-50%); filter: blur(100px); opacity: .3; pointer-events: none;
+  background: radial-gradient(circle, var(--brand-2), transparent 66%);
+  animation: breathe 9s ease-in-out infinite;
+}
+@keyframes breathe { 0%,100% { opacity: .22; } 50% { opacity: .42; } }
+.cta h2 { position: relative; font-size: clamp(28px, 4.2vw, 44px); font-weight: 800; }
+.cta p { position: relative; color: var(--ink-2); margin: 16px auto 0; max-width: 540px; }
+.cta .hero-cta { margin-top: 28px; }
+
+footer { border-top: 1px solid var(--hairline); padding: 30px 0; color: var(--muted); font-size: 13px; }
+.foot-in { display: flex; gap: 16px; align-items: center; flex-wrap: wrap; }
+
+/* ============================================================== analytics */
+.an-grid { display: grid; grid-template-columns: 1.62fr 1fr; gap: 18px; }
+.an-grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 18px; margin-top: 18px; }
+@media (max-width: 900px) {
+  .an-grid, .an-grid-3 { grid-template-columns: 1fr; }
+}
+.an-head { display: flex; align-items: flex-start; gap: 12px; margin-bottom: 16px; }
+.an-head h3 { font-size: 16px; }
+.an-head .note { color: var(--muted); font-size: 12.5px; display: block; margin-top: 3px; }
+.an-head .seg { margin-left: auto; }
+
+.seg { display: flex; gap: 3px; padding: 3px; border-radius: 999px;
+       background: var(--surface-2); border: 1px solid var(--hairline); }
+.seg button {
+  border: 0; background: transparent; color: var(--muted); cursor: pointer;
+  font: inherit; font-size: 12px; font-weight: 600; padding: 5px 12px;
+  border-radius: 999px; transition: background .2s, color .2s;
+}
+.seg button.on { background: var(--brand); color: #fff; }
+
+.chart-legend { display: flex; gap: 16px; margin-bottom: 6px; }
+.chart-legend span { display: flex; align-items: center; gap: 6px;
+                     font-size: 12px; color: var(--ink-2); }
+.sw { width: 9px; height: 9px; border-radius: 3px; }
+
+/* Stroke-dash animation is what makes a line chart look drawn rather than
+   flipped on. The length is measured in JS because it depends on the path. */
+.area { width: 100%; height: auto; aspect-ratio: 640 / 210; display: block;
+        overflow: visible; }
+.spark { fill: none; stroke-width: 2.25; stroke-linecap: round; stroke-linejoin: round; }
+.area .spark { transition: stroke-dashoffset 1.15s cubic-bezier(.25,.8,.3,1); }
+.area path[id^="fill"] { opacity: 0; transition: opacity .7s ease .35s; }
+.area.drawn path[id^="fill"] { opacity: 1; }
+.grid-l { stroke: var(--hairline); stroke-width: 1; }
+.dot {
+  r: 0; fill: var(--page); stroke-width: 2;
+  transition: r .3s cubic-bezier(.2,.7,.3,1);
+}
+.area.drawn .dot { r: 3.4; }
+.dot:hover { r: 5.5; }
+.axis-row { display: flex; justify-content: space-between; margin-top: 8px;
+            font-size: 11px; color: var(--muted); }
+
+/* ----------------------------------------------------------------- donut */
+.donut-wrap { position: relative; display: grid; place-items: center; padding: 6px 0 2px; }
+.donut { width: 172px; height: 172px; }
+.donut-track { fill: none; stroke: var(--surface-2); stroke-width: 15; }
+.donut-seg {
+  fill: none; stroke-width: 15; stroke-linecap: butt;
+  transition: stroke-dasharray 1.1s cubic-bezier(.25,.8,.3,1);
+}
+.donut-mid { position: absolute; text-align: center; pointer-events: none; }
+.donut-mid .dv { font-size: 30px; font-weight: 800; font-variant-numeric: tabular-nums; }
+.donut-mid .dk { font-size: 11px; color: var(--muted); text-transform: uppercase;
+                 letter-spacing: .1em; }
+.mix-list { list-style: none; margin: 14px 0 0; padding: 0; display: grid; gap: 9px; }
+.mix-list li { display: flex; align-items: center; gap: 9px; font-size: 13px; }
+.mix-list .lbl { color: var(--ink-2); }
+.mix-list .pctv { margin-left: auto; font-weight: 700; font-variant-numeric: tabular-nums; }
+
+/* ---------------------------------------------------------------- funnel */
+.fnl { display: grid; gap: 11px; }
+.fnl-row .top { display: flex; font-size: 12.5px; margin-bottom: 5px; }
+.fnl-row .top .n { margin-left: auto; font-weight: 700; font-variant-numeric: tabular-nums; }
+.fnl-bar { height: 11px; border-radius: 6px; background: var(--surface-2); overflow: hidden; }
+.fnl-bar > i {
+  display: block; height: 100%; width: 0; border-radius: 6px;
+  background: linear-gradient(90deg, var(--brand), var(--brand-2));
+  transition: width 1s cubic-bezier(.25,.8,.3,1);
+}
+.fnl-row:last-child .fnl-bar > i {
+  background: linear-gradient(90deg, var(--good), #4fd1c5);
+}
+
+/* ------------------------------------------------------------ ranked bars */
+.rank { display: grid; gap: 13px; }
+.rank-row .top { display: flex; font-size: 12.5px; margin-bottom: 5px; }
+.rank-row .top .n { margin-left: auto; font-weight: 700; font-variant-numeric: tabular-nums; }
+.rank-bar { height: 8px; border-radius: 5px; background: var(--surface-2); overflow: hidden; }
+.rank-bar > i { display: block; height: 100%; width: 0; border-radius: 5px;
+                transition: width .95s cubic-bezier(.25,.8,.3,1); }
+.rank-row .sub { font-size: 11px; color: var(--muted); margin-top: 4px; }
+
+/* ----------------------------------------------------------------- gauge */
+.gauge-wrap { position: relative; display: grid; place-items: center; }
+.gauge { width: 100%; max-width: 210px; height: auto; }
+.g-track, .g-val { fill: none; stroke-width: 13; stroke-linecap: round; }
+.g-track { stroke: var(--surface-2); }
+.g-val { stroke: var(--good);
+         transition: stroke-dashoffset 1.2s cubic-bezier(.25,.8,.3,1); }
+.gauge-mid { position: absolute; bottom: 2px; text-align: center; }
+.gauge-mid .gv { font-size: 30px; font-weight: 800; font-variant-numeric: tabular-nums; }
+.gauge-mid .gv small { font-size: 15px; font-weight: 700; color: var(--ink-2); }
+.gauge-mid .gk { font-size: 11px; color: var(--muted); }
+.g-foot { display: flex; justify-content: space-between; margin-top: 12px; font-size: 12px; }
+.g-foot .ok { color: var(--good); font-weight: 600; }
+.g-foot .bad { color: var(--hot); font-weight: 600; }
+
+/* ------------------------------------------------------------- kpi strip */
+.kpis { display: grid; grid-template-columns: repeat(4, 1fr); gap: 18px; margin-top: 18px; }
+@media (max-width: 900px) { .kpis { grid-template-columns: repeat(2, 1fr); } }
+.kpi { background: var(--surface); border: 1px solid var(--hairline);
+       border-radius: var(--radius); padding: 18px 20px;
+       transition: transform .25s cubic-bezier(.2,.7,.3,1), border-color .25s; }
+.kpi:hover { transform: translateY(-4px);
+             border-color: color-mix(in srgb, var(--brand) 40%, transparent); }
+.kpi .kk { font-size: 11.5px; color: var(--muted); text-transform: uppercase;
+           letter-spacing: .09em; }
+.kpi .kv { display: flex; align-items: baseline; gap: 8px; margin: 6px 0 8px;
+           font-size: 27px; font-weight: 800; font-variant-numeric: tabular-nums; }
+.trend { font-size: 12px; font-weight: 700; }
+.trend.up { color: var(--good); }
+.trend.down { color: var(--muted); }
+.mini { width: 100%; height: 34px; display: block; overflow: visible; }
+.mini .spark { stroke-width: 2; transition: stroke-dashoffset 1.3s ease; }
+
+.illus { text-align: center; color: var(--muted); font-size: 12.5px; margin-top: 26px; }
+</style>
+</head>
+<body>
+
+<header class="nav" id="nav">
+  <div class="wrap nav-in">
+    <div class="logo"><span class="mark">R</span> Riphah <span style="color:var(--muted);font-weight:600">Lead CRM</span></div>
+    <nav class="nav-links">
+      <a href="#what">What it does</a>
+      <a href="#analytics">Analytics</a>
+      <a href="#how">How it works</a>
+      <a href="#sources">Sources</a>
+    </nav>
+    <div class="grow"></div>
+    <button class="btn ghost" id="themeBtn" aria-label="Toggle theme">◐</button>
+    <a class="btn primary" href="/app">Sign in <span class="arrow">→</span></a>
+  </div>
+</header>
+
+<!-- ==================================================================== hero -->
+<section class="hero">
+  <div class="aurora" aria-hidden="true">
+    <div class="blob b1"></div><div class="blob b2"></div><div class="blob b3"></div>
+  </div>
+  <div class="wrap hero-in">
+    <div class="eyebrow rise" style="animation-delay:.05s">Riphah Properties · Sales desk</div>
+    <h1 class="rise" style="animation-delay:.15s">
+      Every enquiry worked<br><span class="shine">to a decision.</span>
+    </h1>
+    <p class="lede rise" style="animation-delay:.28s">
+      Leads arrive from the AI property assistant and Meta ads, get deduplicated
+      against everyone you already know, and land in one queue — tiered, owned,
+      and timed. Nothing sits unanswered because nobody noticed it.
+    </p>
+    <div class="hero-cta rise" style="animation-delay:.4s">
+      <a class="btn primary lg" href="/app">Open the dashboard <span class="arrow">→</span></a>
+      <a class="btn lg" href="#how">See how it works</a>
+    </div>
+    <div class="hero-note rise" style="animation-delay:.5s">
+      Accounts are provisioned for staff — there is no public sign-up.
+    </div>
+
+    <!-- Product mock. Deliberately a real layout rather than a stock image: the
+         tiles and bars below are the actual dashboard's shape. -->
+    <div class="mock-wrap reveal" id="mockWrap">
+      <div class="mock">
+        <div class="mock-bar">
+          <span class="dot"></span><span class="dot"></span><span class="dot"></span>
+          <span class="label">Riphah Lead CRM — Dashboard</span>
+        </div>
+        <div class="mock-body">
+          <div class="mock-tiles">
+            <div class="mtile"><div class="k">Leads</div><div class="v" data-count="248">0</div></div>
+            <div class="mtile hot"><div class="k">Hot</div><div class="v" data-count="61">0</div></div>
+            <div class="mtile"><div class="k">Unassigned</div><div class="v" data-count="12">0</div></div>
+            <div class="mtile"><div class="k">Median reply</div><div class="v" data-count="3" data-suffix="h">0</div></div>
+          </div>
+          <div class="mock-chart" id="mockChart">
+            <div class="bar" data-h="38"></div><div class="bar" data-h="54"></div>
+            <div class="bar" data-h="46"></div><div class="bar" data-h="72"></div>
+            <div class="bar" data-h="61"></div><div class="bar" data-h="88"></div>
+            <div class="bar" data-h="70"></div><div class="bar" data-h="94"></div>
+            <div class="bar" data-h="66"></div><div class="bar" data-h="79"></div>
+            <div class="bar" data-h="85"></div><div class="bar" data-h="100"></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ================================================================= sources -->
+<div class="strip" id="sources">
+  <div class="cap">Lead sources</div>
+  <div class="marquee" id="marquee">
+    <span><i class="pip"></i> AI Property Assistant</span>
+    <span><i class="pip"></i> Signed webhooks</span>
+    <span><i class="pip"></i> Pull reconciliation</span>
+    <span><i class="pip pending"></i> Meta Lead Ads</span>
+    <span><i class="pip"></i> Manual entry</span>
+    <span><i class="pip"></i> CSV export</span>
+  </div>
+</div>
+
+<!-- ==================================================================== what -->
+<section class="band" id="what">
+  <div class="wrap">
+    <div class="head reveal">
+      <div class="eyebrow">What it does</div>
+      <h2>A sales desk, not a database</h2>
+      <p>Six things a property sales manager actually acts on. Everything else
+         stayed out.</p>
+    </div>
+    <div class="cards">
+      <div class="card reveal"><div class="ico">🎯</div>
+        <h3>Tiered on arrival</h3>
+        <p>Every lead scores hot, warm or cold from what the visitor actually
+           said — budget, timeline, project, intent. Spam is quarantined before
+           it reaches the queue.</p></div>
+      <div class="card reveal"><div class="ico">🔗</div>
+        <h3>Deduplicated across sources</h3>
+        <p>The same buyer enquiring twice — once by chat, once from an ad — is one
+           person, matched on a cross-source identity key rather than an exact
+           email.</p></div>
+      <div class="card reveal"><div class="ico">⏱</div>
+        <h3>Response targets that surface</h3>
+        <p>Hot leads carry a clock. Anything past its target appears at the top of
+           the dashboard by name, not buried in a report nobody opens.</p></div>
+      <div class="card reveal"><div class="ico">👤</div>
+        <h3>Ownership</h3>
+        <p>Assign a consultant, see their load, and find every actionable lead
+           that still has nobody's name on it.</p></div>
+      <div class="card reveal"><div class="ico">📊</div>
+        <h3>Where the good leads come from</h3>
+        <p>Hot rate and conversion by source and campaign — so budget follows the
+           channel that produces buyers, not the one that produces volume.</p></div>
+      <div class="card reveal"><div class="ico">📤</div>
+        <h3>Yours to leave</h3>
+        <p>Every lead and field exports to CSV. The integration is a documented
+           API, so moving to Salesforce or Zoho later costs a mapping, not a
+           migration.</p></div>
+    </div>
+  </div>
+</section>
+
+<!-- =============================================================== analytics -->
+<section class="band" id="analytics" style="padding-top:0">
+  <div class="wrap">
+    <div class="head reveal">
+      <div class="eyebrow">Analytics</div>
+      <h2>The numbers you run the desk on</h2>
+      <p>Not a reporting suite. Six views that answer where leads come from,
+         which ones are worth calling first, and where the pipeline is leaking.</p>
+    </div>
+
+    <!-- row 1: trend + mix ------------------------------------------------ -->
+    <div class="an-grid">
+      <div class="card an-main reveal" id="trendCard">
+        <header class="an-head">
+          <div>
+            <h3>Leads captured</h3>
+            <span class="note" id="trendNote">by qualification tier</span>
+          </div>
+          <div class="seg" id="rangeSeg">
+            <button data-range="7">7d</button>
+            <button data-range="30" class="on">30d</button>
+            <button data-range="90">90d</button>
+          </div>
+        </header>
+
+        <div class="chart-legend">
+          <span><i class="sw" style="background:var(--hot)"></i>Hot</span>
+          <span><i class="sw" style="background:var(--warm)"></i>Warm</span>
+          <span><i class="sw" style="background:var(--cold)"></i>Cold</span>
+        </div>
+
+        <svg class="area" id="areaSvg" viewBox="0 0 640 210"
+             role="img" aria-label="Leads captured over time by tier">
+          <defs>
+            <linearGradient id="gHot" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stop-color="var(--hot)" stop-opacity=".38"/>
+              <stop offset="100%" stop-color="var(--hot)" stop-opacity="0"/>
+            </linearGradient>
+            <linearGradient id="gWarm" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stop-color="var(--warm)" stop-opacity=".34"/>
+              <stop offset="100%" stop-color="var(--warm)" stop-opacity="0"/>
+            </linearGradient>
+            <linearGradient id="gCold" x1="0" y1="0" x2="0" y2="1">
+              <stop offset="0%" stop-color="var(--cold)" stop-opacity=".30"/>
+              <stop offset="100%" stop-color="var(--cold)" stop-opacity="0"/>
+            </linearGradient>
+          </defs>
+          <g id="gridLines"></g>
+          <path id="fillCold" fill="url(#gCold)" d=""></path>
+          <path id="fillWarm" fill="url(#gWarm)" d=""></path>
+          <path id="fillHot"  fill="url(#gHot)"  d=""></path>
+          <path id="lineCold" class="spark" stroke="var(--cold)" d=""></path>
+          <path id="lineWarm" class="spark" stroke="var(--warm)" d=""></path>
+          <path id="lineHot"  class="spark" stroke="var(--hot)"  d=""></path>
+          <g id="dots"></g>
+        </svg>
+        <div class="axis-row" id="axisRow"></div>
+      </div>
+
+      <div class="card reveal" id="mixCard">
+        <header class="an-head"><div><h3>Qualification mix</h3>
+          <span class="note">share of actionable leads</span></div></header>
+        <div class="donut-wrap">
+          <svg viewBox="0 0 140 140" class="donut" role="img" aria-label="Qualification mix">
+            <circle cx="70" cy="70" r="54" class="donut-track"></circle>
+            <g id="donutSegs" transform="rotate(-90 70 70)"></g>
+          </svg>
+          <div class="donut-mid">
+            <div class="dv" data-count="248">0</div>
+            <div class="dk">leads</div>
+          </div>
+        </div>
+        <ul class="mix-list" id="mixList"></ul>
+      </div>
+    </div>
+
+    <!-- row 2: funnel + sources + response ------------------------------- -->
+    <div class="an-grid-3">
+      <div class="card reveal" id="funnelCard">
+        <header class="an-head"><div><h3>Funnel</h3>
+          <span class="note">each stage a subset of the one above</span></div></header>
+        <div class="fnl" id="fnl"></div>
+      </div>
+
+      <div class="card reveal" id="srcCard">
+        <header class="an-head"><div><h3>Source quality</h3>
+          <span class="note">hot rate, not volume</span></div></header>
+        <div class="rank" id="rank"></div>
+      </div>
+
+      <div class="card reveal" id="gaugeCard">
+        <header class="an-head"><div><h3>First response</h3>
+          <span class="note">median, hot and warm</span></div></header>
+        <div class="gauge-wrap">
+          <svg viewBox="0 0 200 118" class="gauge" role="img" aria-label="Median first response time">
+            <path class="g-track" d="M20 104 A 80 80 0 0 1 180 104"></path>
+            <path class="g-val" id="gVal" d="M20 104 A 80 80 0 0 1 180 104"></path>
+          </svg>
+          <div class="gauge-mid">
+            <div class="gv"><span data-count="3">0</span><small>h</small></div>
+            <div class="gk">target 24h</div>
+          </div>
+        </div>
+        <div class="g-foot">
+          <span class="ok">92% inside target</span>
+          <span class="bad">4 breaching</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- row 3: kpi strip with sparklines --------------------------------- -->
+    <div class="kpis reveal" id="kpiStrip">
+      <div class="kpi">
+        <div class="kk">Contactable</div>
+        <div class="kv"><span data-count="94" data-suffix="%">0</span>
+          <span class="trend up">▲ 6</span></div>
+        <svg viewBox="0 0 120 34" class="mini"><path class="spark" stroke="var(--good)"
+          d="M2 26 L17 24 L32 25 L47 19 L62 20 L77 14 L92 12 L107 7 L118 6"></path></svg>
+      </div>
+      <div class="kpi">
+        <div class="kk">Worked within SLA</div>
+        <div class="kv"><span data-count="92" data-suffix="%">0</span>
+          <span class="trend up">▲ 11</span></div>
+        <svg viewBox="0 0 120 34" class="mini"><path class="spark" stroke="var(--brand)"
+          d="M2 28 L17 27 L32 22 L47 23 L62 17 L77 15 L92 11 L107 9 L118 6"></path></svg>
+      </div>
+      <div class="kpi">
+        <div class="kk">Hot rate</div>
+        <div class="kv"><span data-count="25" data-suffix="%">0</span>
+          <span class="trend up">▲ 3</span></div>
+        <svg viewBox="0 0 120 34" class="mini"><path class="spark" stroke="var(--hot)"
+          d="M2 24 L17 22 L32 25 L47 20 L62 18 L77 19 L92 13 L107 12 L118 9"></path></svg>
+      </div>
+      <div class="kpi">
+        <div class="kk">Spam filtered</div>
+        <div class="kv"><span data-count="37">0</span>
+          <span class="trend down">▼ 12</span></div>
+        <svg viewBox="0 0 120 34" class="mini"><path class="spark" stroke="var(--muted)"
+          d="M2 8 L17 11 L32 10 L47 15 L62 14 L77 20 L92 22 L107 25 L118 27"></path></svg>
+      </div>
+    </div>
+
+    <p class="illus reveal">
+      Figures above are illustrative, to show the shape of each view. Your own
+      dashboard renders the same charts from live lead data.
+    </p>
+  </div>
+</section>
+
+<!-- ===================================================================== how -->
+<section class="band" id="how" style="padding-top:0">
+  <div class="wrap">
+    <div class="head reveal">
+      <div class="eyebrow">How it works</div>
+      <h2>Enquiry to decision, in four moves</h2>
+      <p>The assistant captures. This tracks. Neither knows more about the other
+         than an API contract.</p>
+    </div>
+    <div class="flow">
+      <div class="step reveal"><div class="n">1</div><h3>Capture</h3>
+        <p>A visitor talks to the assistant, by text or voice. Fields are taken
+           from the conversation — never a form.</p></div>
+      <div class="step reveal"><div class="n">2</div><h3>Deliver</h3>
+        <p>A signed webhook fires on create and update, with a pull reconciliation
+           behind it so a missed delivery self-heals.</p></div>
+      <div class="step reveal"><div class="n">3</div><h3>Resolve</h3>
+        <p>Normalised, deduplicated and tiered. Idempotent on source and external
+           id, so a replayed webhook changes nothing.</p></div>
+      <div class="step reveal"><div class="n">4</div><h3>Work</h3>
+        <p>Assign, call, note, convert. Response time and outcome are recorded
+           against the lead, not a spreadsheet.</p></div>
+    </div>
+  </div>
+</section>
+
+<!-- ================================================================= metrics -->
+<div class="metrics">
+  <div class="wrap mrow" id="metrics">
+    <div class="metric"><div class="v" data-count="2">0</div>
+      <div class="k">Live lead sources</div></div>
+    <div class="metric"><div class="v" data-count="300" data-suffix="s">0</div>
+      <div class="k">Pull reconcile interval</div></div>
+    <div class="metric"><div class="v" data-count="100" data-suffix="%">0</div>
+      <div class="k">Webhooks signature-verified</div></div>
+    <div class="metric"><div class="v" data-count="0" data-suffix=" forms">0</div>
+      <div class="k">Shown to a visitor</div></div>
+  </div>
+</div>
+
+<!-- ===================================================================== cta -->
+<section class="cta">
+  <div class="glow" aria-hidden="true"></div>
+  <div class="wrap">
+    <h2>Open the queue.</h2>
+    <p>Sign in with your consultant account. If you don't have one, an
+       administrator provisions it — this CRM holds buyers' phone numbers, so
+       there is no public sign-up by design.</p>
+    <div class="hero-cta">
+      <a class="btn primary lg" href="/app">Sign in <span class="arrow">→</span></a>
+      <a class="btn lg" href="#what">Back to the top</a>
+    </div>
+  </div>
+</section>
+
+<footer>
+  <div class="wrap foot-in">
+    <div class="logo" style="font-size:14px"><span class="mark" style="width:22px;height:22px;font-size:11px">R</span> Riphah Lead CRM</div>
+    <div class="grow"></div>
+    <div>Internal sales tooling · Riphah Properties</div>
+  </div>
+</footer>
+
+<script>
+const $ = (id) => document.getElementById(id);
+
+/* Theme. Defaults to dark because the hero gradients are built for it, but the
+   choice persists and the whole palette swaps. */
+try {
+  const saved = localStorage.getItem("riphah.crm.theme");
+  if (saved) document.documentElement.setAttribute("data-theme", saved);
+} catch { /* private mode */ }
+$("themeBtn").onclick = () => {
+  const root = document.documentElement;
+  const next = root.getAttribute("data-theme") === "light" ? "dark" : "light";
+  root.setAttribute("data-theme", next);
+  try { localStorage.setItem("riphah.crm.theme", next); } catch { /* ignore */ }
+};
+
+/* Hairline appears on the nav only once the page has moved, so the hero reads as
+   one uninterrupted surface at rest. */
+const onScroll = () => $("nav").classList.toggle("stuck", window.scrollY > 8);
+addEventListener("scroll", onScroll, { passive: true });
+onScroll();
+
+/* Count-up. Runs on reveal rather than load, so a number the visitor never
+   scrolled to hasn't already finished animating by the time they arrive. */
+function countUp(el) {
+  const target = Number(el.dataset.count || 0);
+  const suffix = el.dataset.suffix || "";
+  if (!target) { el.textContent = "0" + suffix; return; }
+  const duration = 1100;
+  const start = performance.now();
+  const step = (now) => {
+    const t = Math.min(1, (now - start) / duration);
+    // easeOutCubic: fast then settling, which reads as counting rather than sliding.
+    const eased = 1 - Math.pow(1 - t, 3);
+    el.textContent = Math.round(target * eased).toLocaleString() + suffix;
+    if (t < 1) requestAnimationFrame(step);
+  };
+  requestAnimationFrame(step);
+}
+
+/* One observer for every reveal on the page. Unobserves after firing: these are
+   entrances, not scroll-linked effects, and re-running them on scroll-back is
+   the thing that makes animated pages feel cheap. */
+const reduced = matchMedia("(prefers-reduced-motion: reduce)").matches;
+const seen = new WeakSet();
+const io = new IntersectionObserver((entries) => {
+  for (const entry of entries) {
+    if (!entry.isIntersecting || seen.has(entry.target)) continue;
+    seen.add(entry.target);
+    entry.target.classList.add("in");
+
+    // Count up any numbers this element owns, wherever it is on the page.
+    entry.target.querySelectorAll("[data-count]").forEach((el, i) =>
+      reduced ? countUp(el) : setTimeout(() => countUp(el), i * 90));
+
+    if (entry.target.id === "mockWrap") {
+      entry.target.querySelectorAll(".bar").forEach((bar, i) => {
+        const grow = () => { bar.style.height = bar.dataset.h + "%"; };
+        reduced ? grow() : setTimeout(grow, 120 + i * 55);
+      });
+    }
+
+    // Charts draw on arrival rather than on load: an animation the visitor
+    // never saw has been wasted, and a chart that is already finished when they
+    // reach it looks like a static image.
+    const CHARTS = {
+      trendCard:  () => drawArea(30),
+      mixCard:    drawDonut,
+      funnelCard: drawFunnel,
+      srcCard:    drawRank,
+      gaugeCard:  drawGauge,
+      kpiStrip:   () => drawSparks(entry.target),
+    };
+    CHARTS[entry.target.id]?.();
+
+    io.unobserve(entry.target);
+  }
+}, { threshold: 0.18, rootMargin: "0px 0px -40px 0px" });
+
+document.querySelectorAll(".reveal").forEach((el) => io.observe(el));
+io.observe($("metrics"));
+
+/* Stagger the feature and step cards by their position in their own row, so a
+   grid arrives left-to-right instead of all at once. */
+document.querySelectorAll(".cards .card, .flow .step").forEach((el, i) => {
+  el.style.transitionDelay = `${(i % 3) * 80}ms`;
+});
+
+/* Cursor-tracking glow. Written as CSS custom properties so the gradient itself
+   stays in the stylesheet. */
+document.querySelectorAll(".card").forEach((card) => {
+  card.addEventListener("pointermove", (event) => {
+    const box = card.getBoundingClientRect();
+    card.style.setProperty("--mx", `${event.clientX - box.left}px`);
+    card.style.setProperty("--my", `${event.clientY - box.top}px`);
+  });
+});
+
+/* ============================================================== analytics */
+
+/* Illustrative series. Shaped like real lead flow — a weekly rhythm with a dip
+   at the weekend — because a smooth curve reads as decoration and a random one
+   reads as noise. Three ranges so the toggle has something to actually do. */
+const SERIES = {
+  7:  { hot: [4,6,5,8,7,3,5], warm: [7,9,8,11,10,6,8], cold: [3,4,3,5,4,2,4],
+        labels: ["Mon","Tue","Wed","Thu","Fri","Sat","Sun"] },
+  30: { hot:  [3,5,4,7,6,2,4,5,7,6,9,8,4,6,7,9,8,11,10,5,7,9,12,10,13,11,6,8,12,14],
+        warm: [6,8,7,11,9,4,7,9,11,10,13,12,7,10,11,13,12,16,14,8,11,13,17,15,18,16,9,12,16,19],
+        cold: [2,3,3,4,4,2,3,3,4,4,5,5,3,4,4,5,5,6,6,3,4,5,6,6,7,6,4,5,6,7],
+        labels: ["Jul 24","Aug 1","Aug 8","Aug 15","Aug 22"] },
+  90: { hot:  [2,3,3,4,5,4,6,5,7,6,8,7,9,8,10,9,11,10,12,11,13,12,14,13,15,14,16,15,17,19],
+        warm: [4,5,6,7,8,7,10,9,11,10,13,12,14,13,16,15,17,16,18,17,20,19,21,20,22,21,23,22,25,27],
+        cold: [1,2,2,3,3,3,4,4,4,5,5,5,6,6,6,7,7,7,8,8,8,9,9,9,10,10,10,11,11,12],
+        labels: ["Jun","Jul","Aug"] },
+};
+
+const W = 640, H = 210, PAD_T = 12, PAD_B = 16;
+
+/* Catmull-Rom to cubic Bezier. A polyline through weekly data has visible
+   corners at every point; smoothing reads as a trend line without moving any
+   value, which a spline fitted to fewer control points would. */
+function smoothPath(points) {
+  if (points.length < 2) return "";
+  let d = `M${points[0][0]} ${points[0][1]}`;
+  for (let i = 0; i < points.length - 1; i++) {
+    const p0 = points[i - 1] || points[i];
+    const p1 = points[i];
+    const p2 = points[i + 1];
+    const p3 = points[i + 2] || p2;
+    const c1x = p1[0] + (p2[0] - p0[0]) / 6;
+    const c1y = p1[1] + (p2[1] - p0[1]) / 6;
+    const c2x = p2[0] - (p3[0] - p1[0]) / 6;
+    const c2y = p2[1] - (p3[1] - p1[1]) / 6;
+    d += ` C${c1x} ${c1y} ${c2x} ${c2y} ${p2[0]} ${p2[1]}`;
+  }
+  return d;
+}
+
+function drawArea(range) {
+  const svg = $("areaSvg");
+  const data = SERIES[range];
+  // Stack the tiers: cold sits at the bottom, warm on cold, hot on top — so the
+  // top edge is the total and each band's thickness is its own count.
+  const stacks = data.cold.map((c, i) => {
+    const w = c + data.warm[i];
+    return [c, w, w + data.hot[i]];
+  });
+  const peak = Math.max(...stacks.map((s) => s[2])) * 1.12;
+  const n = stacks.length;
+  const x = (i) => (n === 1 ? 0 : (i / (n - 1)) * W);
+  const y = (v) => H - PAD_B - (v / peak) * (H - PAD_T - PAD_B);
+
+  // gridlines
+  $("gridLines").innerHTML = [0, 0.25, 0.5, 0.75, 1]
+    .map((f) => `<line class="grid-l" x1="0" x2="${W}" y1="${y(peak * f)}" y2="${y(peak * f)}"/>`)
+    .join("");
+
+  const levels = [
+    { key: 0, line: "lineCold", fill: "fillCold" },
+    { key: 1, line: "lineWarm", fill: "fillWarm" },
+    { key: 2, line: "lineHot",  fill: "fillHot"  },
+  ];
+
+  svg.classList.remove("drawn");
+  for (const level of levels) {
+    const pts = stacks.map((s, i) => [x(i), y(s[level.key])]);
+    const line = smoothPath(pts);
+    const path = $(level.line);
+    path.setAttribute("d", line);
+    $(level.fill).setAttribute("d", `${line} L${W} ${H - PAD_B} L0 ${H - PAD_B} Z`);
+
+    // Reset the dash to the path's own length, then release it on the next frame
+    // so the browser has a start value to transition from.
+    const len = path.getTotalLength();
+    path.style.transition = "none";
+    path.style.strokeDasharray = len;
+    path.style.strokeDashoffset = len;
+  }
+
+  // Dots on the top band only — one marker per point on three lines is a mess.
+  const topPts = stacks.map((s, i) => [x(i), y(s[2])]);
+  $("dots").innerHTML = topPts.map(([px, py], i) =>
+    `<circle class="dot" cx="${px}" cy="${py}" stroke="var(--hot)"><title>${
+      data.hot[i] + data.warm[i] + data.cold[i]} leads</title></circle>`).join("");
+
+  $("axisRow").innerHTML = data.labels.map((l) => `<span>${l}</span>`).join("");
+  $("trendNote").textContent = `by qualification tier · last ${range} days`;
+
+  requestAnimationFrame(() => {
+    for (const level of levels) {
+      const path = $(level.line);
+      path.style.transition = "";
+      path.style.strokeDashoffset = "0";
+    }
+    svg.classList.add("drawn");
+  });
+}
+
+/* ------------------------------------------------------------------ donut */
+const MIX = [
+  { label: "Hot", value: 61, color: "var(--hot)" },
+  { label: "Warm", value: 128, color: "var(--warm)" },
+  { label: "Cold", value: 59, color: "var(--cold)" },
+];
+
+function drawDonut() {
+  const R = 54, C = 2 * Math.PI * R;
+  const total = MIX.reduce((sum, m) => sum + m.value, 0);
+  let offset = 0;
+
+  // Gap is a full circumference so the pattern never repeats, and the arc is
+  // placed by rotating the element rather than by offsetting the dash — which
+  // keeps "how long is the arc" and "where does it start" independent.
+  $("donutSegs").innerHTML = MIX.map((m) => {
+    const len = (m.value / total) * C;
+    const angle = (offset / C) * 360;
+    const circle = `<circle class="donut-seg" cx="70" cy="70" r="${R}"
+      stroke="${m.color}" stroke-dasharray="0 ${C}" data-len="${len} ${C}"
+      transform="rotate(${angle} 70 70)"></circle>`;
+    offset += len;
+    return circle;
+  }).join("");
+
+  // Largest-remainder rounding. Rounding each share independently gives 25 + 52
+  // + 24 = 101%, and a mix chart whose own labels don't add up undermines every
+  // other number on the page.
+  const exact = MIX.map((m) => (m.value / total) * 100);
+  const pcts = exact.map(Math.floor);
+  let short = 100 - pcts.reduce((a, b) => a + b, 0);
+  exact
+    .map((v, i) => ({ i, rem: v - Math.floor(v) }))
+    .sort((a, b) => b.rem - a.rem)
+    .forEach(({ i }) => { if (short-- > 0) pcts[i] += 1; });
+
+  $("mixList").innerHTML = MIX.map((m, i) => `<li>
+      <i class="sw" style="background:${m.color}"></i>
+      <span class="lbl">${m.label}</span>
+      <span class="pctv">${pcts[i]}%</span></li>`).join("");
+
+  // Each ring unwinds from empty to its arc, staggered so they appear to fill
+  // around the circle rather than all at once.
+  requestAnimationFrame(() => {
+    $("donutSegs").querySelectorAll(".donut-seg").forEach((seg, i) => {
+      setTimeout(() => { seg.style.strokeDasharray = seg.dataset.len; }, i * 170);
+    });
+  });
+}
+
+/* ----------------------------------------------------------------- funnel */
+const FUNNEL = [
+  { label: "Captured", n: 248 },
+  { label: "Contactable", n: 233 },
+  { label: "Contacted", n: 171 },
+  { label: "Converted", n: 38 },
+];
+
+function drawFunnel() {
+  const top = FUNNEL[0].n;
+  $("fnl").innerHTML = FUNNEL.map((f) => `<div class="fnl-row">
+      <div class="top"><span>${f.label}</span>
+        <span class="n">${f.n.toLocaleString()} · ${Math.round((f.n / top) * 100)}%</span></div>
+      <div class="fnl-bar"><i data-w="${(f.n / top) * 100}"></i></div>
+    </div>`).join("");
+  requestAnimationFrame(() => {
+    $("fnl").querySelectorAll(".fnl-bar > i").forEach((bar, i) => {
+      setTimeout(() => { bar.style.width = bar.dataset.w + "%"; }, i * 130);
+    });
+  });
+}
+
+/* ------------------------------------------------------------ source rank */
+const SOURCES = [
+  { label: "AI Property Assistant", hot: 77, vol: "213 leads", color: "var(--brand)" },
+  { label: "Meta Lead Ads", hot: 41, vol: "pending credentials", color: "var(--brand-2)" },
+  { label: "Manual entry", hot: 22, vol: "35 leads", color: "var(--muted)" },
+];
+
+function drawRank() {
+  $("rank").innerHTML = SOURCES.map((s) => `<div class="rank-row">
+      <div class="top"><span>${s.label}</span><span class="n">${s.hot}%</span></div>
+      <div class="rank-bar"><i data-w="${s.hot}" style="background:${s.color}"></i></div>
+      <div class="sub">${s.vol}</div>
+    </div>`).join("");
+  requestAnimationFrame(() => {
+    $("rank").querySelectorAll(".rank-bar > i").forEach((bar, i) => {
+      setTimeout(() => { bar.style.width = bar.dataset.w + "%"; }, i * 150);
+    });
+  });
+}
+
+/* ------------------------------------------------------------------ gauge */
+function drawGauge() {
+  const path = $("gVal");
+  const len = path.getTotalLength();
+  // 3h against a 24h target, floored so a fast desk still shows a visible arc.
+  const fraction = Math.max(0.08, 1 - 3 / 24);
+  path.style.transition = "none";
+  path.style.strokeDasharray = len;
+  path.style.strokeDashoffset = len;
+  requestAnimationFrame(() => {
+    path.style.transition = "";
+    path.style.strokeDashoffset = len * (1 - fraction);
+  });
+}
+
+/* --------------------------------------------------------------- sparkline */
+function drawSparks(root) {
+  root.querySelectorAll(".mini .spark").forEach((path, i) => {
+    const len = path.getTotalLength();
+    path.style.transition = "none";
+    path.style.strokeDasharray = len;
+    path.style.strokeDashoffset = len;
+    setTimeout(() => {
+      path.style.transition = "";
+      path.style.strokeDashoffset = "0";
+    }, 90 * i);
+  });
+}
+
+/* The range toggle redraws and re-animates, which is the point of having it:
+   a static chart with dead buttons is worse than no buttons. */
+$("rangeSeg").addEventListener("click", (event) => {
+  const button = event.target.closest("button[data-range]");
+  if (!button) return;
+  for (const node of $("rangeSeg").children) node.classList.toggle("on", node === button);
+  drawArea(Number(button.dataset.range));
+});
+
+/* The marquee scrolls -50%, so the list has to be duplicated exactly once for
+   the wrap to be seamless. Cloning beats hand-maintaining two copies. */
+const marquee = $("marquee");
+marquee.innerHTML += marquee.innerHTML;
+</script>
+</body>
+</html>

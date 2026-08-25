@@ -1,0 +1,12 @@
+# --- backend ---
+fastapi>=0.115.0
+uvicorn[standard]>=0.32.0
+python-dotenv>=1.0.0
+pydantic>=2.10.0
+
+# --- integration ---
+httpx>=0.27.0             # pull reconciliation + Graph API + status write-back
+
+# No model SDK here on purpose: the CRM does no inference. It consumes leads the
+# assistant has already scored, which keeps the OpenAI key out of this service
+# entirely.

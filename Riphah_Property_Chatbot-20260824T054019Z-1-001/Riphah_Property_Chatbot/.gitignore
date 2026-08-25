@@ -1,0 +1,17 @@
+# secrets
+.env
+
+# python
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+
+# database and uploads (rebuild with: python -m kb.build)
+data/
+
+# eval output
+eval/results*.json
+
+# os
+.DS_Store

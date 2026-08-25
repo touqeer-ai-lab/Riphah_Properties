@@ -1,0 +1,1736 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Riphah Lead CRM</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap"
+      rel="stylesheet">
+<style>
+/* ============================================================== tokens
+   Chart colours are validated, not chosen by eye. Each set below was run
+   through the data-viz validator (lightness band, chroma floor, CVD
+   separation, normal-vision floor, contrast) in BOTH light and dark:
+
+   tiers light  #d03b3b / #eda100 / #2a78d6  — CVD ΔE 19.8, normal 24.1
+   tiers dark   #e66767 / #fab219 / #3987e5  — CVD ΔE 16.9, normal 20.8
+   sources      #2a78d6 / #eb6834 / #1baf7a  — CVD ΔE  9.2, normal 24.0
+   ordinal blue five steps, monotone lightness, single hue (3° spread)
+
+   Two slots sit below 3:1 against the light surface (--tier-warm 2.11,
+   --src-3 2.74). The relief rule applies and is honoured: every mark carries a
+   visible direct label, and every chart has a table view. Colour never carries
+   a value alone here.
+
+   Spam is deliberately the one achromatic slot. It fails the chroma floor by
+   design — spam is excluded from lead counts, and reading as inert grey is the
+   correct signal. It is always labelled. */
+:root {
+  color-scheme: light;
+  --surface-1: #fcfcfb;
+  --page: #f4f4f1;
+  --ink: #0b0b0b;
+  --ink-2: #52514e;
+  --muted: #898781;
+  --grid: #e1e0d9;
+  --axis: #c3c2b7;
+  --hairline: rgba(11,11,11,.10);
+
+  --tier-hot: #d03b3b;
+  --tier-warm: #eda100;
+  --tier-cold: #2a78d6;
+  --tier-spam: #898781;
+
+  --src-1: #2a78d6;
+  --src-2: #eb6834;
+  --src-3: #1baf7a;
+
+  --ord-1: #86b6ef;
+  --ord-2: #5598e7;
+  --ord-3: #2a78d6;
+  --ord-4: #1c5cab;
+  --ord-5: #104281;
+
+  --good: #0ca30c;
+  --good-text: #006300;
+  --critical: #d03b3b;
+  --warning: #fab219;
+
+  --radius: 12px;
+  --shadow: 0 1px 2px rgba(11,11,11,.05), 0 10px 28px rgba(11,11,11,.06);
+}
+@media (prefers-color-scheme: dark) {
+  :root:where(:not([data-theme="light"])) {
+    color-scheme: dark;
+    --surface-1: #1a1a19;
+    --page: #0d0d0d;
+    --ink: #ffffff;
+    --ink-2: #c3c2b7;
+    --muted: #898781;
+    --grid: #2c2c2a;
+    --axis: #383835;
+    --hairline: rgba(255,255,255,.10);
+    --tier-hot: #e66767;
+    --tier-warm: #fab219;
+    --tier-cold: #3987e5;
+    --src-1: #3987e5;
+    --src-2: #d95926;
+    --src-3: #199e70;
+    --ord-1: #cde2fb;
+    --ord-2: #9ec5f4;
+    --ord-3: #6da7ec;
+    --ord-4: #3987e5;
+    --ord-5: #184f95;
+    --good-text: #0ca30c;
+  }
+}
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --surface-1: #1a1a19;
+  --page: #0d0d0d;
+  --ink: #ffffff;
+  --ink-2: #c3c2b7;
+  --muted: #898781;
+  --grid: #2c2c2a;
+  --axis: #383835;
+  --hairline: rgba(255,255,255,.10);
+  --tier-hot: #e66767;
+  --tier-warm: #fab219;
+  --tier-cold: #3987e5;
+  --src-1: #3987e5;
+  --src-2: #d95926;
+  --src-3: #199e70;
+  --ord-1: #cde2fb;
+  --ord-2: #9ec5f4;
+  --ord-3: #6da7ec;
+  --ord-4: #3987e5;
+  --ord-5: #184f95;
+  --good-text: #0ca30c;
+}
+
+* { box-sizing: border-box; }
+html, body { margin: 0; }
+body {
+  background: var(--page); color: var(--ink);
+  font: 14.5px/1.55 "Inter", system-ui, -apple-system, "Segoe UI", sans-serif;
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+}
+button, select, input { font: inherit; }
+button { cursor: pointer; }
+h1, h2, h3 { margin: 0; font-weight: 700; letter-spacing: -.015em; }
+a { color: var(--tier-cold); }
+::selection { background: var(--tier-cold); color: #fff; }
+
+/* ============================================================== layout */
+.shell { max-width: 1400px; margin: 0 auto; padding: 0 20px 64px; }
+header.top {
+  position: sticky; top: 0; z-index: 20; background: var(--page);
+  border-bottom: 1px solid var(--hairline); padding: 14px 0 12px;
+  margin-bottom: 20px;
+}
+.top-in { max-width: 1400px; margin: 0 auto; padding: 0 20px;
+          display: flex; gap: 14px; align-items: center; flex-wrap: wrap; }
+.top-in h1 { font-size: 16px; }
+.top-in .sub { color: var(--muted); font-size: 12px; }
+.grow { flex: 1; }
+
+.ctl {
+  background: var(--surface-1); border: 1px solid var(--hairline);
+  color: var(--ink); border-radius: 9px; padding: 7px 12px;
+  transition: border-color .15s, box-shadow .15s, transform .1s;
+}
+.ctl:hover { border-color: var(--axis); box-shadow: var(--shadow); }
+button.ctl:active { transform: translateY(1px); }
+.ctl.on { background: var(--tier-cold); border-color: var(--tier-cold); color: #fff; }
+.ctl.wa { border-color: #1baf7a; color: #0f8a5f; font-weight: 600; }
+.ctl.wa:hover { background: #1baf7a; color: #fff; }
+.ctl.dial { border-color: var(--tier-cold); color: var(--tier-cold); font-weight: 600; }
+.ctl.dial:hover { background: var(--tier-cold); color: #fff; }
+.seg { display: inline-flex; border: 1px solid var(--hairline); border-radius: 8px;
+       overflow: hidden; background: var(--surface-1); }
+.seg button { border: 0; background: transparent; color: var(--ink-2);
+              padding: 7px 11px; }
+.seg button.on { background: var(--tier-cold); color: #fff; }
+
+nav.tabs { display: flex; gap: 4px; margin-bottom: 18px; flex-wrap: wrap; }
+nav.tabs button {
+  background: transparent; border: 0; border-bottom: 2px solid transparent;
+  color: var(--muted); padding: 9px 14px; border-radius: 0;
+  font-weight: 500; font-size: 14px; transition: color .15s;
+}
+nav.tabs button:hover { color: var(--ink-2); }
+nav.tabs button.on { color: var(--ink); border-bottom-color: var(--tier-cold);
+                     font-weight: 600; }
+
+.card {
+  background: var(--surface-1); border: 1px solid var(--hairline);
+  border-radius: var(--radius); padding: 16px; box-shadow: var(--shadow);
+}
+.card > header { display: flex; align-items: baseline; gap: 8px; margin-bottom: 14px; }
+.card > header h3 { font-size: 13.5px; }
+.card > header .note { color: var(--muted); font-size: 11px; }
+.card > header .grow { flex: 1; }
+.tbtn { background: transparent; border: 0; color: var(--muted); font-size: 11px;
+        text-decoration: underline; padding: 0; }
+
+.grid { display: grid; gap: 16px; }
+.g-tiles { grid-template-columns: repeat(4, 1fr); }
+@media (max-width: 780px) { .g-tiles { grid-template-columns: repeat(2, 1fr); } }
+.g-2 { grid-template-columns: repeat(auto-fit, minmax(370px, 1fr)); }
+.g-wide { grid-template-columns: 1fr; }
+section + section { margin-top: 16px; }
+
+/* ============================================================== stat tiles */
+.tile { background: var(--surface-1); border: 1px solid var(--hairline);
+        border-radius: var(--radius); padding: 16px 18px;
+        transition: transform .15s ease, box-shadow .15s ease; }
+.tile:hover { transform: translateY(-2px); box-shadow: var(--shadow); }
+.tile .k { color: var(--muted); font-size: 11px; text-transform: uppercase;
+           letter-spacing: .08em; font-weight: 600; }
+/* Proportional figures for a standalone hero number; tabular is reserved for
+   columns that must align vertically. */
+.tile .v { font-size: 32px; font-weight: 800; line-height: 1.12; margin-top: 5px;
+           letter-spacing: -.02em; }
+.tile .d { font-size: 11.5px; color: var(--ink-2); margin-top: 3px; }
+.tile.accent .v { color: var(--tier-hot); }
+
+/* ============================================================== bar charts
+   Mark spec: thin bars, 4px rounded data-end anchored to the baseline, a 2px
+   surface gap between adjacent fills, direct label on every mark. */
+.bars { display: grid; gap: 9px; }
+.bar-row { display: grid; grid-template-columns: 120px 1fr auto; gap: 10px;
+           align-items: center; }
+.bar-row .lbl { color: var(--ink-2); font-size: 12px; overflow: hidden;
+                text-overflow: ellipsis; white-space: nowrap; }
+.track { background: var(--grid); border-radius: 4px; height: 12px;
+         position: relative; overflow: hidden; }
+.fill { height: 100%; border-radius: 0 4px 4px 0; min-width: 3px;
+        transition: width .3s ease; }
+.bar-row .val { font-variant-numeric: tabular-nums; font-size: 12px;
+                min-width: 74px; text-align: right; color: var(--ink); }
+.bar-row .val small { color: var(--muted); }
+
+/* stacked single-bar (tier mix) — 2px surface gap between segments */
+.stack { display: flex; height: 14px; border-radius: 4px; overflow: hidden;
+         background: var(--grid); gap: 2px; }
+.stack > span { min-width: 2px; }
+.legend { display: flex; flex-wrap: wrap; gap: 12px; margin-top: 12px;
+          font-size: 12px; }
+.legend .item { display: flex; align-items: center; gap: 6px; color: var(--ink-2); }
+.legend .sw { width: 10px; height: 10px; border-radius: 3px; flex: none; }
+.legend b { color: var(--ink); font-variant-numeric: tabular-nums; }
+
+/* ============================================================== timeseries */
+.ts-wrap { position: relative; overflow-x: auto; }
+svg.ts { display: block; width: 100%; height: 210px; min-width: 320px; }
+svg.ts .gridline { stroke: var(--grid); stroke-width: 1; }
+svg.ts .axis { stroke: var(--axis); stroke-width: 1; }
+svg.ts text { fill: var(--muted); font-size: 10px; }
+svg.ts .hit { fill: transparent; cursor: crosshair; }
+svg.ts .hit.hover { fill: var(--grid); opacity: .5; }
+.tip {
+  position: absolute; pointer-events: none; opacity: 0; transition: opacity .1s;
+  background: var(--surface-1); border: 1px solid var(--axis);
+  border-radius: 8px; padding: 8px 10px; font-size: 12px; z-index: 10;
+  box-shadow: var(--shadow); min-width: 130px;
+}
+.tip.show { opacity: 1; }
+.tip .th { font-weight: 600; margin-bottom: 5px; }
+.tip .tr { display: flex; align-items: center; gap: 6px; }
+.tip .tr .sw { width: 8px; height: 8px; border-radius: 2px; }
+.tip .tr .n { margin-left: auto; font-variant-numeric: tabular-nums; }
+
+/* ============================================================== funnel */
+.funnel { display: grid; gap: 7px; }
+.fstage { display: grid; grid-template-columns: 132px 1fr auto; gap: 10px;
+          align-items: center; }
+.fstage .lbl { font-size: 12px; color: var(--ink-2); }
+.fbar { height: 22px; border-radius: 4px; display: flex; align-items: center;
+        padding: 0 8px; color: #fff; font-size: 11px; font-weight: 500;
+        min-width: 34px; font-variant-numeric: tabular-nums; }
+.fstage .drop { font-size: 11px; color: var(--muted); min-width: 92px;
+                text-align: right; font-variant-numeric: tabular-nums; }
+
+/* ============================================================== tables */
+.tbl-wrap { overflow-x: auto; }
+table { width: 100%; border-collapse: collapse; font-size: 13px; }
+th, td { text-align: left; padding: 9px 10px; border-bottom: 1px solid var(--hairline);
+         white-space: nowrap; }
+th { color: var(--muted); font-size: 11px; text-transform: uppercase;
+     letter-spacing: .06em; font-weight: 500; }
+tbody tr:hover { background: var(--page); }
+tbody tr.click { cursor: pointer; }
+td.num, th.num { text-align: right; font-variant-numeric: tabular-nums; }
+.chip { display: inline-flex; align-items: center; gap: 5px; font-size: 11px;
+        padding: 2px 8px; border-radius: 20px; border: 1px solid var(--hairline);
+        color: var(--ink-2); }
+.chip .sw { width: 7px; height: 7px; border-radius: 50%; }
+.chip.hot { border-color: var(--tier-hot); color: var(--tier-hot); }
+.chip.warm { border-color: var(--tier-warm); color: var(--ink-2); }
+.chip.cold { border-color: var(--tier-cold); color: var(--tier-cold); }
+.chip.spam { border-color: var(--muted); color: var(--muted); }
+.chip.over { border-color: var(--critical); color: var(--critical); }
+.chip.ok { border-color: var(--good); color: var(--good-text); }
+
+.filters { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 14px;
+           align-items: center; }
+.filters input[type=search] { min-width: 190px; }
+.empty { color: var(--muted); padding: 26px 0; text-align: center; font-size: 13px; }
+
+/* ============================================================== chat monitor */
+.chatmon { display: grid; grid-template-columns: 330px 1fr; padding: 0;
+           overflow: hidden; min-height: 560px; }
+.cm-side { border-right: 1px solid var(--hairline); display: flex;
+           flex-direction: column; min-height: 0; }
+.cm-side > input { margin: 10px 10px 8px; }
+.cm-list { overflow-y: auto; max-height: 600px; }
+.cm-row { display: flex; gap: 10px; padding: 11px 12px; cursor: pointer;
+          border-top: 1px solid var(--hairline); align-items: flex-start;
+          transition: background .12s; }
+.cm-row:hover, .cm-row.on { background: var(--page); }
+.cm-row.on { box-shadow: inset 3px 0 0 var(--tier-cold); }
+.cm-ava { width: 38px; height: 38px; border-radius: 50%;
+          color: #fff; display: grid; place-items: center;
+          font-weight: 700; flex: none; font-size: 15px; }
+.cm-mid { flex: 1; min-width: 0; }
+.cm-name { font-weight: 600; font-size: 13px; display: flex; gap: 6px;
+           align-items: baseline; }
+.cm-name .t { flex: 1; overflow: hidden; text-overflow: ellipsis;
+              white-space: nowrap; }
+.cm-name .w { color: var(--muted); font-size: 11px; flex: none;
+              font-weight: 400; }
+.cm-prev { color: var(--muted); font-size: 12px; overflow: hidden;
+           text-overflow: ellipsis; white-space: nowrap; margin-top: 1px; }
+.cm-row .chip { margin-top: 4px; }
+.cm-main { display: flex; flex-direction: column; min-height: 0; }
+.cm-head { padding: 12px 16px; border-bottom: 1px solid var(--hairline);
+           display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.cm-head .sub { color: var(--muted); font-size: 12px; }
+.cm-body { flex: 1; overflow-y: auto; padding: 16px; max-height: 600px; }
+.cm-msg { display: flex; margin-bottom: 10px; animation: cm-in .18s ease; }
+@keyframes cm-in { from { opacity: 0; transform: translateY(4px); }
+                   to { opacity: 1; transform: none; } }
+.cm-msg .bub { max-width: 75%; padding: 9px 13px; border-radius: 14px;
+               font-size: 13.5px; line-height: 1.5; white-space: pre-wrap;
+               overflow-wrap: anywhere; border: 1px solid var(--hairline);
+               background: var(--surface-1); box-shadow: var(--shadow); }
+.cm-msg .stamp { font-size: 10px; opacity: .6; margin-top: 4px; }
+.cm-msg.user { justify-content: flex-start; }
+.cm-msg.user .bub { border-bottom-left-radius: 4px; background: var(--page); }
+.cm-msg.assistant { justify-content: flex-end; }
+.cm-msg.assistant .bub { background: var(--tier-cold);
+                         border-color: var(--tier-cold); color: #fff;
+                         border-bottom-right-radius: 4px; }
+.cm-tool { text-align: center; color: var(--muted); font-size: 11px;
+           font-family: ui-monospace, Menlo, monospace; margin: 4px 0 10px; }
+@media (max-width: 900px) { .chatmon { grid-template-columns: 1fr; }
+  .cm-side { border-right: 0; border-bottom: 1px solid var(--hairline); }
+  .cm-list { max-height: 300px; } }
+
+/* ============================================================== drawer */
+.scrim { position: fixed; inset: 0; background: rgba(8,12,16,.42); z-index: 40;
+         display: none; }
+.scrim.open { display: block; }
+.drawer {
+  position: fixed; top: 0; right: 0; bottom: 0; width: min(660px, 100%);
+  background: var(--surface-1); z-index: 41; transform: translateX(100%);
+  transition: transform .22s ease; overflow-y: auto; padding: 20px;
+  border-left: 1px solid var(--hairline);
+}
+.drawer.open { transform: translateX(0); }
+.drawer h2 { font-size: 17px; }
+.kv { display: grid; grid-template-columns: 132px 1fr; gap: 5px 12px;
+      font-size: 13px; margin: 12px 0; }
+.kv dt { color: var(--muted); }
+.kv dd { margin: 0; overflow-wrap: anywhere; }
+.sec-h { font-size: 11px; text-transform: uppercase; letter-spacing: .07em;
+         color: var(--muted); margin: 20px 0 8px; }
+.transcript { border: 1px solid var(--hairline); border-radius: 10px;
+              max-height: 320px; overflow-y: auto; padding: 12px; }
+.t-msg { margin-bottom: 11px; font-size: 13px; }
+.t-msg .who { font-size: 10px; text-transform: uppercase; letter-spacing: .07em;
+              color: var(--muted); }
+.t-msg .body { white-space: pre-wrap; overflow-wrap: anywhere; }
+.t-msg.tool { color: var(--muted); font-size: 11px;
+              font-family: ui-monospace, Menlo, monospace; }
+.note-item { border-left: 2px solid var(--tier-cold); padding: 4px 0 4px 10px;
+             margin-bottom: 9px; font-size: 13px; }
+.note-item .meta { color: var(--muted); font-size: 11px; }
+textarea { width: 100%; min-height: 62px; border: 1px solid var(--hairline);
+           border-radius: 9px; padding: 9px; background: var(--page);
+           color: var(--ink); resize: vertical; }
+.row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+
+/* ============================================================== source cards */
+.src { display: grid; grid-template-columns: 10px 1fr; gap: 12px;
+       padding: 13px 0; border-bottom: 1px solid var(--hairline); }
+.src .dot { width: 10px; height: 10px; border-radius: 50%; margin-top: 5px; }
+.src h4 { margin: 0 0 3px; font-size: 13px; font-weight: 600; }
+.src .detail { font-size: 12px; color: var(--ink-2); }
+.src .miss { font-size: 11px; color: var(--muted); margin-top: 6px;
+             font-family: ui-monospace, Menlo, monospace; }
+.banner { border: 1px solid var(--warning); border-left-width: 3px;
+          border-radius: 10px; padding: 11px 13px; font-size: 12px;
+          color: var(--ink-2); background: var(--surface-1); }
+
+/* ============================================================== login */
+.login-wrap { min-height: 100vh; display: grid; place-items: center; padding: 20px; }
+.login { width: min(370px, 100%); }
+.field { margin-bottom: 11px; }
+.field label { display: block; font-size: 12px; color: var(--muted);
+               margin-bottom: 4px; }
+.field input { width: 100%; padding: 10px 11px; border: 1px solid var(--hairline);
+               border-radius: 9px; background: var(--page); color: var(--ink); }
+.err { color: var(--critical); font-size: 12px; min-height: 16px; }
+.hide { display: none !important; }
+</style>
+</head>
+<body>
+
+<!-- ============================================================ login -->
+<div class="login-wrap" id="loginView">
+  <div class="card login">
+    <h2 style="font-size:17px">Riphah Lead CRM</h2>
+    <p style="color:var(--muted);font-size:13px;margin:4px 0 18px">
+      Sign in with your consultant account.</p>
+    <div class="field"><label for="lEmail">Email</label>
+      <input id="lEmail" type="email" autocomplete="username"></div>
+    <div class="field"><label for="lPass">Password</label>
+      <input id="lPass" type="password" autocomplete="current-password"></div>
+    <div class="err" id="lErr"></div>
+    <button class="ctl on" id="lBtn" style="width:100%;margin-top:8px">Sign in</button>
+  </div>
+</div>
+
+<!-- ============================================================ app -->
+<div id="appView" class="hide">
+<header class="top">
+  <div class="top-in">
+    <div>
+      <h1>Riphah Lead CRM</h1>
+      <div class="sub" id="whoami"></div>
+    </div>
+    <div class="grow"></div>
+    <div class="seg" id="rangeSeg" role="group" aria-label="Date range">
+      <button data-days="7">7d</button>
+      <button data-days="30" class="on">30d</button>
+      <button data-days="90">90d</button>
+      <button data-days="365">1y</button>
+    </div>
+    <button class="ctl" id="syncBtn" title="Pull from the assistant now">Sync</button>
+    <button class="ctl" id="exportBtn">Export CSV</button>
+    <button class="ctl" id="themeBtn" aria-label="Toggle theme">◐</button>
+    <button class="ctl" id="outBtn">Sign out</button>
+  </div>
+</header>
+
+<div class="shell">
+  <div id="syncNote"></div>
+
+  <nav class="tabs" id="tabs">
+    <button data-tab="overview" class="on">Dashboard</button>
+    <button data-tab="leads">Leads</button>
+    <button data-tab="chats">Chats</button>
+    <button data-tab="analytics">Analytics</button>
+    <button data-tab="settings" id="settingsTab" class="hide">Settings</button>
+  </nav>
+
+  <!-- ---------------------------------------------------------- overview -->
+  <div id="tab-overview">
+    <section class="grid g-tiles" id="tiles"></section>
+
+    <section class="grid g-2" style="margin-top:16px">
+      <div class="card">
+        <header>
+          <h3>Leads over time</h3>
+          <span class="note" id="tsNote"></span>
+          <span class="grow"></span>
+          <button class="tbtn" data-table="ts">Table</button>
+        </header>
+        <div class="ts-wrap">
+          <svg class="ts" id="tsSvg" role="img"
+               aria-label="Daily lead volume by qualification tier"></svg>
+          <div class="tip" id="tsTip"></div>
+        </div>
+        <div class="legend" id="tsLegend"></div>
+        <div id="ts-table" class="hide tbl-wrap" style="margin-top:12px"></div>
+      </div>
+
+      <div class="card">
+        <header>
+          <h3>Qualification mix</h3>
+          <span class="note">Spam is excluded from lead counts</span>
+          <span class="grow"></span>
+          <button class="tbtn" data-table="tier">Table</button>
+        </header>
+        <div class="stack" id="tierStack"></div>
+        <div class="legend" id="tierLegend"></div>
+        <div class="bars" id="tierBars" style="margin-top:16px"></div>
+        <div id="tier-table" class="hide tbl-wrap" style="margin-top:12px"></div>
+      </div>
+    </section>
+
+    <section class="grid" style="margin-top:16px">
+      <div class="card">
+        <header>
+          <h3>Funnel</h3>
+          <span class="note">Each stage is a subset of the one above</span>
+          <span class="grow"></span>
+          <button class="tbtn" data-table="funnel">Table</button>
+        </header>
+        <div class="funnel" id="funnel"></div>
+        <div id="funnel-table" class="hide tbl-wrap" style="margin-top:12px"></div>
+      </div>
+
+    </section>
+
+    <section class="card" style="margin-top:16px">
+      <header>
+        <h3>Past response target</h3>
+        <span class="note" id="slaNote"></span>
+      </header>
+      <div class="tbl-wrap" id="slaTable"></div>
+    </section>
+  </div>
+
+  <!-- ------------------------------------------------------------- leads -->
+  <div id="tab-leads" class="hide">
+    <div class="card">
+      <div class="filters">
+        <input class="ctl" type="search" id="fSearch"
+               placeholder="Name, phone, email, ref…">
+        <select class="ctl" id="fTier">
+          <option value="">All tiers</option>
+          <option value="hot">Hot</option><option value="warm">Warm</option>
+          <option value="cold">Cold</option><option value="spam">Spam</option>
+        </select>
+        <select class="ctl" id="fStatus">
+          <option value="">All statuses</option>
+          <option value="new">New</option><option value="contacted">Contacted</option>
+          <option value="qualified">Qualified</option>
+          <option value="converted">Converted</option>
+          <option value="lost">Lost</option>
+        </select>
+        <select class="ctl" id="fSource"><option value="">All sources</option></select>
+        <select class="ctl" id="fOwner"><option value="">All owners</option></select>
+        <select class="ctl" id="fSort">
+          <option value="captured_at">Newest first</option>
+          <option value="qualification">Hot first</option>
+          <option value="score">Score</option>
+          <option value="updated_at">Recently updated</option>
+        </select>
+        <label class="chip"><input type="checkbox" id="fUnassigned"> Unassigned</label>
+        <label class="chip"><input type="checkbox" id="fUnconfirmed">
+          Needs confirmation</label>
+        <span class="grow"></span>
+        <span class="sub" id="leadCount"></span>
+      </div>
+      <div class="tbl-wrap" id="leadTable"></div>
+      <div class="row" style="margin-top:12px;justify-content:center">
+        <button class="ctl" id="prevPage">← Previous</button>
+        <button class="ctl" id="nextPage">Next →</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ------------------------------------------------------------- chats -->
+  <div id="tab-chats" class="hide">
+    <div class="card chatmon">
+      <div class="cm-side">
+        <input class="ctl" type="search" id="cmSearch"
+               placeholder="Name, phone, email, ref…">
+        <div id="cmList" class="cm-list"></div>
+      </div>
+      <div class="cm-main">
+        <div id="cmHead" class="cm-head hide"></div>
+        <div id="cmBody" class="cm-body">
+          <div class="empty">Every lead the assistant captured arrived from a
+            conversation.<br>Pick one on the left to read it.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- --------------------------------------------------------- analytics -->
+  <div id="tab-analytics" class="hide">
+    <section class="card" style="margin-bottom:16px">
+      <header>
+        <h3>Active vs inactive</h3>
+        <span class="note" id="engNote"></span>
+      </header>
+      <div class="sec-h" style="margin-top:0">Visitor engagement</div>
+      <div class="bars" id="engVisitor"></div>
+      <div class="sec-h">Sales pipeline</div>
+      <div class="bars" id="engPipeline"></div>
+    </section>
+
+    <section class="grid g-2">
+      <div class="card">
+        <header><h3>Lead source</h3>
+          <span class="note">Volume and quality — not volume alone</span></header>
+        <div class="bars" id="srcBars"></div>
+        <div class="legend" id="srcLegend"></div>
+      </div>
+      <div class="card">
+        <header><h3>Budget band</h3>
+          <span class="note">Captured budget ceiling</span></header>
+        <div class="bars" id="budgetBars"></div>
+      </div>
+    </section>
+    <section class="grid g-2" style="margin-top:16px">
+      <div class="card"><header><h3>Project interest</h3></header>
+        <div class="bars" id="projectBars"></div></div>
+      <div class="card"><header><h3>Purchase timeline</h3></header>
+        <div class="bars" id="timelineBars"></div></div>
+    </section>
+    <section class="grid g-2" style="margin-top:16px">
+      <div class="card"><header><h3>Purpose</h3></header>
+        <div class="bars" id="purposeBars"></div></div>
+      <div class="card"><header><h3>Channel</h3>
+        <span class="note">Text, voice, or form</span></header>
+        <div class="bars" id="channelBars"></div></div>
+    </section>
+    <section class="card" style="margin-top:16px">
+      <header><h3>Campaign attribution</h3>
+        <span class="note">Hot rate matters more than volume</span></header>
+      <div class="tbl-wrap" id="attrTable"></div>
+    </section>
+    <section class="card" style="margin-top:16px">
+      <header><h3>Consultant load</h3></header>
+      <div class="tbl-wrap" id="ownerTable"></div>
+    </section>
+  </div>
+
+  <!-- ------------------------------------------------------ integrations -->
+  <div id="tab-settings" class="hide">
+    <section class="card">
+      <header><h3>Lead sources</h3></header>
+      <div id="srcCards"></div>
+    </section>
+    <section class="card" style="margin-top:16px">
+      <header><h3>Outbound calling &amp; WhatsApp</h3>
+        <span class="note">Fully wired — fill the .env credentials and a channel
+          flips live with no code change. Until then the buttons use wa.me /
+          softphone links and still log every attempt.</span></header>
+      <div id="commCards"></div>
+    </section>
+    <section class="card" style="margin-top:16px">
+      <header><h3>Recent inbound webhooks</h3>
+        <span class="note">Rejected deliveries are kept — "never arrived" and
+          "arrived and was rejected" need different fixes</span></header>
+      <div class="tbl-wrap" id="hookTable"></div>
+    </section>
+  </div>
+
+  <!-- ---------------------------------------------------------------- team -->
+    <section class="card" style="margin-top:16px">
+      <header>
+        <h3>Consultants</h3>
+        <span class="note">There is no self-signup — accounts are created here.
+          This CRM shows leads with phone numbers in them.</span>
+      </header>
+      <div class="tbl-wrap" id="staffTable"></div>
+    </section>
+
+    <section class="card" style="margin-top:16px" id="addStaffCard">
+      <header><h3>Add a consultant</h3>
+        <span class="note">Admin only</span></header>
+      <div class="row" style="align-items:flex-end">
+        <div class="field" style="margin:0;min-width:210px">
+          <label for="sEmail">Email</label>
+          <input id="sEmail" type="email" placeholder="sales1@riphah.local">
+        </div>
+        <div class="field" style="margin:0;min-width:170px">
+          <label for="sName">Name</label>
+          <input id="sName" placeholder="Ayesha Khan">
+        </div>
+        <div class="field" style="margin:0">
+          <label for="sRole">Role</label>
+          <select class="ctl" id="sRole" style="padding:10px 11px">
+            <option value="agent">agent — own leads + unassigned pool</option>
+            <option value="manager">manager — everything, can export</option>
+            <option value="admin">admin — manager + team admin</option>
+          </select>
+        </div>
+        <div class="field" style="margin:0;min-width:170px">
+          <label for="sPass">Password</label>
+          <input id="sPass" type="text" placeholder="min 8 characters">
+        </div>
+        <button class="ctl on" id="sAdd">Create</button>
+        <button class="ctl" id="sGen" title="Generate a password">🎲</button>
+      </div>
+      <div class="err" id="sErr" style="margin-top:8px"></div>
+      <div class="banner" id="sOk" style="margin-top:8px;display:none"></div>
+    </section>
+
+
+  </div>
+</div>
+</div>
+
+<div class="scrim" id="scrim"></div>
+<aside class="drawer" id="drawer" aria-label="Lead detail"></aside>
+
+<script>
+"use strict";
+
+const state = {
+  user: null, days: 30, tab: "overview", dash: null,
+  leads: [], offset: 0, limit: 50, total: 0, owners: [], lead: null,
+};
+const $ = (id) => document.getElementById(id);
+
+/* Series colour is read from CSS custom properties, so a theme switch repaints
+   every chart without any JS knowing a hex value. */
+const cssVar = (name) =>
+  getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+
+const TIERS = [
+  { key: "hot", label: "Hot", v: "--tier-hot" },
+  { key: "warm", label: "Warm", v: "--tier-warm" },
+  { key: "cold", label: "Cold", v: "--tier-cold" },
+  { key: "spam", label: "Spam", v: "--tier-spam" },
+];
+const ORD = ["--ord-1", "--ord-2", "--ord-3", "--ord-4", "--ord-5"];
+const SRC_COLORS = { chatbot: "--src-1", meta: "--src-2", manual: "--src-3" };
+
+const esc = (s) => String(s ?? "").replace(/[&<>"']/g,
+  (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+const pct = (n) => `${Math.round((n || 0) * 100)}%`;
+const num = (n) => (n ?? 0).toLocaleString();
+const when = (iso) => {
+  if (!iso) return "—";
+  const d = new Date(iso.endsWith("Z") || iso.includes("+") ? iso : iso + "Z");
+  return d.toLocaleString(undefined,
+    { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" });
+};
+const hours = (h) => (h == null ? "—" : h < 1 ? `${Math.round(h * 60)}m`
+  : h < 48 ? `${h.toFixed(1)}h` : `${Math.round(h / 24)}d`);
+/* Pakistani money units, because "25000000" is not a label a sales manager reads. */
+const money = (v) => {
+  const n = Number(v);
+  if (!n || Number.isNaN(n)) return esc(v);
+  if (n >= 1e7) return `${(n / 1e7).toFixed(2).replace(/\.?0+$/, "")} crore`;
+  if (n >= 1e5) return `${Math.round(n / 1e5)} lakh`;
+  return n.toLocaleString();
+};
+const pretty = (s) => String(s ?? "").replace(/_/g, " ")
+  .replace(/^\w/, (c) => c.toUpperCase());
+
+async function api(path, options = {}) {
+  const res = await fetch(path, {
+    credentials: "same-origin",
+    headers: options.body ? { "Content-Type": "application/json" } : undefined,
+    ...options,
+  });
+  let data = null;
+  try { data = await res.json(); } catch { /* csv or empty */ }
+  if (!res.ok) throw new Error(data?.detail || `Request failed (${res.status})`);
+  return data;
+}
+
+/* ======================================================= reusable bar chart */
+/* One renderer for every bar chart on the page. Every mark carries a direct
+   label — that is the relief for the two palette slots below 3:1 contrast, and
+   it means a reader never has to match a colour to a legend to get a value. */
+function drawBars(el, rows, { colorVar, colorFor, suffix = "", max = null } = {}) {
+  if (!rows.length) {
+    el.innerHTML = `<div class="empty">No data in this range.</div>`;
+    return;
+  }
+  const top = max ?? Math.max(...rows.map((r) => r.value), 1);
+  el.innerHTML = rows.map((r, i) => {
+    const color = cssVar(colorFor ? colorFor(r, i) : (colorVar || ORD[i % ORD.length]));
+    const w = Math.max(2, (r.value / top) * 100);
+    return `<div class="bar-row">
+      <span class="lbl" title="${esc(r.label)}">${esc(r.label)}</span>
+      <span class="track"><span class="fill"
+        style="width:${w}%;background:${color}"></span></span>
+      <span class="val">${num(r.value)}${suffix}${
+        r.hint ? ` <small>${esc(r.hint)}</small>` : ""}</span>
+    </div>`;
+  }).join("");
+}
+
+function drawLegend(el, items) {
+  el.innerHTML = items.map((it) =>
+    `<span class="item"><span class="sw" style="background:${cssVar(it.v)}"></span>
+      ${esc(it.label)}${it.count != null ? ` <b>${num(it.count)}</b>` : ""}</span>`
+  ).join("");
+}
+
+function tableFrom(headers, rows) {
+  return `<table><thead><tr>${headers.map((h) =>
+    `<th class="${h.num ? "num" : ""}">${esc(h.label)}</th>`).join("")}</tr></thead>
+    <tbody>${rows.map((r) => `<tr>${r.map((c, i) =>
+      `<td class="${headers[i]?.num ? "num" : ""}">${c}</td>`).join("")}</tr>`)
+      .join("")}</tbody></table>`;
+}
+
+/* ============================================================ timeseries */
+/* Stacked bars by tier, with a crosshair hit-band and tooltip per day.
+   Zero-days are drawn (the API fills them) — a line that skips quiet days
+   compresses them out of existence and makes a flat week look like growth. */
+function drawTimeseries(series) {
+  const svg = $("tsSvg");
+  const tip = $("tsTip");
+  const W = svg.clientWidth || 560, H = 210;
+  const pad = { t: 12, r: 10, b: 26, l: 34 };
+  const iw = Math.max(40, W - pad.l - pad.r);
+  const ih = H - pad.t - pad.b;
+
+  const stacked = TIERS.filter((t) => t.key !== "spam");
+  const max = Math.max(1, ...series.map((d) =>
+    stacked.reduce((s, t) => s + (d[t.key] || 0), 0)));
+  const ticks = max <= 4 ? max : 4;
+  const step = iw / Math.max(series.length, 1);
+  const bw = Math.max(2, Math.min(22, step - 3));
+
+  let out = `<g>`;
+  for (let i = 0; i <= ticks; i++) {
+    const v = Math.round((max / ticks) * i);
+    const y = pad.t + ih - (v / max) * ih;
+    out += `<line class="gridline" x1="${pad.l}" y1="${y}" x2="${W - pad.r}" y2="${y}"/>
+            <text x="${pad.l - 6}" y="${y + 3}" text-anchor="end">${v}</text>`;
+  }
+  out += `<line class="axis" x1="${pad.l}" y1="${pad.t + ih}"
+                x2="${W - pad.r}" y2="${pad.t + ih}"/>`;
+
+  series.forEach((d, i) => {
+    const cx = pad.l + step * i + step / 2;
+    let acc = 0;
+    stacked.forEach((t) => {
+      const v = d[t.key] || 0;
+      if (!v) return;
+      const h = (v / max) * ih;
+      acc += h;
+      const y = pad.t + ih - acc;
+      // 4px rounded data-end on the top segment only; 2px surface gap between
+      // segments so adjacent fills never merge into one block.
+      const isTop = t.key === stacked.find((s) => (d[s.key] || 0) > 0
+        && stacked.indexOf(s) === stacked.findIndex((z) => (d[z.key] || 0) > 0))?.key;
+      out += `<rect x="${cx - bw / 2}" y="${y}" width="${bw}"
+        height="${Math.max(1, h - 2)}" rx="${isTop ? 3 : 0}"
+        fill="${cssVar(t.v)}"/>`;
+    });
+    if (series.length <= 16 || i % Math.ceil(series.length / 8) === 0) {
+      out += `<text x="${cx}" y="${H - 8}" text-anchor="middle">${
+        d.period.slice(5)}</text>`;
+    }
+    out += `<rect class="hit" data-i="${i}" x="${pad.l + step * i}" y="${pad.t}"
+      width="${step}" height="${ih}"/>`;
+  });
+  out += `</g>`;
+  svg.setAttribute("viewBox", `0 0 ${W} ${H}`);
+  svg.innerHTML = out;
+
+  svg.querySelectorAll(".hit").forEach((band) => {
+    band.addEventListener("mouseenter", () => {
+      const d = series[+band.dataset.i];
+      band.classList.add("hover");
+      tip.innerHTML = `<div class="th">${esc(d.period)}</div>` +
+        TIERS.map((t) => (d[t.key]
+          ? `<div class="tr"><span class="sw" style="background:${cssVar(t.v)}">
+             </span>${t.label}<span class="n">${d[t.key]}</span></div>` : "")).join("")
+        + `<div class="tr" style="margin-top:4px;border-top:1px solid var(--grid);
+             padding-top:4px"><b>Total</b><span class="n"><b>${d.total}</b></span></div>`;
+      tip.classList.add("show");
+      const x = +band.getAttribute("x") + step / 2;
+      tip.style.left = `${Math.min(Math.max(x - 70, 0), W - 150)}px`;
+      tip.style.top = `8px`;
+    });
+    band.addEventListener("mouseleave", () => {
+      band.classList.remove("hover");
+      tip.classList.remove("show");
+    });
+  });
+}
+
+/* ============================================================== overview */
+function renderOverview() {
+  const d = state.dash;
+  const o = d.overview, e = d.engagement;
+
+  // Four tiles, not seven. Contactable, contacted and converted are all stages
+  // of the funnel card directly below this row, and showing them twice made the
+  // row a wall of percentages with no obvious place to look first. What survives
+  // is the set you can act on: how much came in, what is urgent, what nobody
+  // owns, and whether the team is answering fast enough.
+  $("tiles").innerHTML = [
+    { k: "Leads captured", v: num(o.actionable_leads),
+      d: `${num(o.by_tier.spam)} spam excluded` },
+    { k: "Hot", v: num(o.by_tier.hot), d: "priority queue", accent: true },
+    { k: "Unassigned", v: num(o.unassigned_actionable), d: "hot or warm, no owner" },
+    { k: "Median response", v: hours(o.median_response_hours),
+      d: "hot + warm, first touch" },
+  ].map((t) => `<div class="tile${t.accent ? " accent" : ""}">
+      <div class="k">${t.k}</div><div class="v">${t.v}</div>
+      <div class="d">${t.d}</div></div>`).join("");
+
+  // ---- timeseries
+  $("tsNote").textContent = `${d.timeseries.length} days`;
+  drawTimeseries(d.timeseries);
+  drawLegend($("tsLegend"), TIERS.filter((t) => t.key !== "spam")
+    .map((t) => ({ ...t, count: o.by_tier[t.key] })));
+  $("ts-table").innerHTML = tableFrom(
+    [{ label: "Date" }, { label: "Hot", num: true }, { label: "Warm", num: true },
+     { label: "Cold", num: true }, { label: "Total", num: true }],
+    d.timeseries.map((r) => [esc(r.period), r.hot, r.warm, r.cold, r.total]));
+
+  // ---- tier mix
+  const total = Object.values(o.by_tier).reduce((a, b) => a + b, 0) || 1;
+  $("tierStack").innerHTML = TIERS.map((t) => {
+    const v = o.by_tier[t.key];
+    return v ? `<span title="${t.label}: ${v}"
+      style="flex:${v};background:${cssVar(t.v)}"></span>` : "";
+  }).join("");
+  drawLegend($("tierLegend"), TIERS.map((t) => ({ ...t, count: o.by_tier[t.key] })));
+  drawBars($("tierBars"),
+    TIERS.map((t) => ({ label: t.label, value: o.by_tier[t.key],
+                        hint: pct(o.by_tier[t.key] / total) })),
+    { colorFor: (_, i) => TIERS[i].v });
+  $("tier-table").innerHTML = tableFrom(
+    [{ label: "Tier" }, { label: "Leads", num: true }, { label: "Share", num: true }],
+    TIERS.map((t) => [t.label, o.by_tier[t.key], pct(o.by_tier[t.key] / total)]));
+
+  // ---- funnel (ordinal ramp: one hue, monotone lightness)
+  const top = d.funnel[0]?.count || 1;
+  $("funnel").innerHTML = d.funnel.map((s, i) => `<div class="fstage">
+    <span class="lbl">${esc(s.stage)}</span>
+    <span class="fbar" style="width:${Math.max(8, (s.count / top) * 100)}%;
+      background:${cssVar(ORD[Math.min(i, ORD.length - 1)])}">${num(s.count)}</span>
+    <span class="drop">${i === 0 ? pct(1)
+      : `${pct(s.step_conversion)}${s.dropped ? ` · −${s.dropped}` : ""}`}</span>
+  </div>`).join("");
+  $("funnel-table").innerHTML = tableFrom(
+    [{ label: "Stage" }, { label: "Count", num: true },
+     { label: "Of total", num: true }, { label: "Step", num: true },
+     { label: "Dropped", num: true }],
+    d.funnel.map((s) => [esc(s.stage), s.count, pct(s.of_total),
+                         pct(s.step_conversion), s.dropped]));
+
+  // ---- engagement (the brief's active-vs-inactive ask, on both axes)
+  // The engagement card lives on the Analytics tab now, but it is still filled
+  // from the dashboard payload here — that response already carries the numbers,
+  // so re-fetching them on tab switch would be a second call for data we hold.
+  $("engNote").textContent =
+    `engaged = ${e.engaged_threshold_messages}+ messages · dormant = no activity ` +
+    `for ${e.dormant_after_days} days`;
+  drawBars($("engVisitor"), [
+    { label: "Engaged", value: e.visitor.engaged },
+    { label: "Brief look", value: e.visitor.brief },
+    { label: "No conversation", value: e.visitor.no_conversation },
+    { label: "Returning", value: e.visitor.returning },
+  ], { colorFor: (_, i) => ORD[Math.min(i, 4)] });
+  drawBars($("engPipeline"), [
+    { label: "In play", value: e.pipeline.in_play },
+    { label: "Dormant", value: e.pipeline.dormant },
+    { label: "Closed", value: e.pipeline.closed },
+  ], { colorFor: (r) => r.label === "Dormant" ? "--tier-warm"
+        : r.label === "In play" ? "--tier-cold" : "--tier-spam" });
+
+  // ---- SLA
+  const sla = d.sla;
+  $("slaNote").textContent = sla.note;
+  $("slaTable").innerHTML = sla.breaches.length ? tableFrom(
+    [{ label: "Lead" }, { label: "Tier" }, { label: "Contact" },
+     { label: "Owner" }, { label: "Age", num: true }, { label: "Over by", num: true }],
+    sla.breaches.map((b) => [
+      `<a data-lead="${b.id}" href="#">${esc(b.external_id)}</a>`,
+      chip(b.qualification), esc(b.phone || b.email || "—"),
+      esc(b.assigned_owner || "unassigned"),
+      hours(b.age_hours), `<span class="chip over">+${hours(b.hours_over)}</span>`,
+    ])) : `<div class="empty">Nothing past target. ✅</div>`;
+  wireLeadLinks($("slaTable"));
+}
+
+const chip = (tier) =>
+  `<span class="chip ${esc(tier)}"><span class="sw"
+    style="background:${cssVar(`--tier-${tier}`)}"></span>${pretty(tier)}</span>`;
+
+/* ============================================================== analytics */
+function renderAnalytics() {
+  const d = state.dash;
+
+  drawBars($("srcBars"), d.sources.map((s) => ({
+    label: s.display_name.replace(/ \(.*\)/, ""), value: s.leads || 0,
+    hint: s.actionable ? `${pct(s.hot_rate)} hot` : s.status,
+  })), { colorFor: (_, i) => SRC_COLORS[d.sources[i].key] || "--ord-3" });
+  drawLegend($("srcLegend"), d.sources.map((s) => ({
+    label: `${s.display_name.replace(/ \(.*\)/, "")} (${s.status})`,
+    v: SRC_COLORS[s.key] || "--ord-3", count: s.leads,
+  })));
+
+  drawBars($("budgetBars"),
+    d.budget_bands.map((b) => ({ label: b.band, value: b.leads,
+      hint: b.hot ? `${b.hot} hot` : "" })),
+    { colorFor: (_, i) => ORD[Math.min(i, 4)] });
+
+  const fieldRows = (rows, fmt = pretty) => rows.map((r) => ({
+    label: fmt(r.value), value: r.leads, hint: r.hot ? `${r.hot} hot` : "",
+  }));
+  drawBars($("projectBars"), fieldRows(d.projects, esc), { colorVar: "--ord-3" });
+  drawBars($("timelineBars"), fieldRows(d.timelines), { colorVar: "--ord-3" });
+  drawBars($("purposeBars"), fieldRows(d.purposes), { colorVar: "--ord-3" });
+  drawBars($("channelBars"),
+    d.channels.map((c) => ({ label: pretty(c.channel), value: c.leads,
+      hint: `${c.avg_messages ?? 0} msg avg` })),
+    { colorVar: "--ord-3" });
+
+  $("attrTable").innerHTML = d.attribution.length ? tableFrom(
+    [{ label: "Campaign" }, { label: "Source" }, { label: "Leads", num: true },
+     { label: "Hot", num: true }, { label: "Hot rate", num: true },
+     { label: "Converted", num: true }, { label: "Avg score", num: true }],
+    d.attribution.map((a) => [esc(a.campaign), esc(a.source), a.leads, a.hot,
+      pct(a.hot_rate), a.converted, a.avg_score ?? "—"]))
+    : `<div class="empty">No attribution data yet.</div>`;
+
+  $("ownerTable").innerHTML = d.owners.length ? tableFrom(
+    [{ label: "Consultant" }, { label: "Assigned", num: true },
+     { label: "Hot", num: true }, { label: "Untouched", num: true },
+     { label: "Avg response", num: true }, { label: "Converted", num: true },
+     { label: "Rate", num: true }],
+    d.owners.map((o) => [esc(o.owner), o.assigned, o.hot, o.untouched,
+      hours(o.avg_response_hours), o.converted, pct(o.conversion_rate)]))
+    : `<div class="empty">No leads assigned yet.</div>`;
+}
+
+/* ================================================================== leads */
+async function loadLeads() {
+  const params = new URLSearchParams({
+    limit: state.limit, offset: state.offset, days: state.days,
+    sort: $("fSort").value,
+  });
+  const map = { search: "fSearch", qualification: "fTier", status: "fStatus",
+                source: "fSource", owner: "fOwner" };
+  for (const [key, id] of Object.entries(map)) {
+    if ($(id).value) params.set(key, $(id).value);
+  }
+  if ($("fUnassigned").checked) params.set("unassigned", "true");
+  if ($("fUnconfirmed").checked) params.set("needs_confirmation", "true");
+  if ($("fTier").value === "spam") params.set("include_spam", "true");
+
+  const data = await api(`/api/leads?${params}`);
+  state.leads = data.leads;
+  state.total = data.total;
+  renderLeads();
+}
+
+function renderLeads() {
+  $("leadCount").textContent =
+    `${state.offset + 1}–${state.offset + state.leads.length} of ${state.total}`
+      .replace(/^1–0 of 0$/, "no leads");
+  $("prevPage").disabled = state.offset === 0;
+  $("nextPage").disabled = state.offset + state.limit >= state.total;
+
+  $("leadTable").innerHTML = state.leads.length ? tableFrom(
+    [{ label: "Ref" }, { label: "Name" }, { label: "Contact" }, { label: "Tier" },
+     { label: "Score", num: true }, { label: "Status" }, { label: "Owner" },
+     { label: "Source" }, { label: "Msgs", num: true },
+     { label: "Response", num: true }, { label: "Captured" }],
+    state.leads.map((l) => [
+      `<a data-lead="${l.id}" href="#">${esc(l.external_id)}</a>${
+        l.unconfirmed_fields ? ` <span class="chip" title="${
+          l.unconfirmed_fields} field(s) inferred rather than stated">?</span>` : ""}`,
+      esc(l.name || "—"),
+      esc(l.phone || l.email || "—"),
+      chip(l.qualification),
+      l.score,
+      `<span class="chip">${pretty(l.status)}</span>`,
+      esc(l.assigned_owner || "—"),
+      esc(l.source_key),
+      l.message_count,
+      l.response_hours == null
+        ? `<span class="chip">pending</span>` : hours(l.response_hours),
+      when(l.captured_at),
+    ])) : `<div class="empty">No leads match these filters.</div>`;
+  wireLeadLinks($("leadTable"));
+}
+
+function wireLeadLinks(root) {
+  root.querySelectorAll("[data-lead]").forEach((node) => {
+    node.onclick = (event) => { event.preventDefault(); openLead(node.dataset.lead); };
+  });
+}
+
+/* ============================================================== integrations */
+function renderIntegrations(data) {
+  $("srcCards").innerHTML = data.sources.map((s) => {
+    const live = s.status === "live";
+    // 'degraded' is its own state: leads are arriving by webhook but pull
+    // reconciliation is down, so a lost delivery would never be recovered.
+    const color = live ? cssVar("--good")
+      : s.status === "degraded" ? cssVar("--critical")
+      : s.status === "pending" ? cssVar("--warning") : cssVar("--muted");
+    return `<div class="src">
+      <span class="dot" style="background:${color}"></span>
+      <div>
+        <h4>${esc(s.display_name)}
+          <span class="chip ${live ? "ok" : ""}">${esc(s.status)}</span></h4>
+        <div class="detail">${esc(s.detail || "")}</div>
+        ${s.missing_config?.length
+          ? `<div class="miss">missing: ${s.missing_config.map(esc).join(", ")}</div>`
+          : ""}
+        ${s.blocked_on ? `<div class="miss">blocked on: ${esc(s.blocked_on)}</div>` : ""}
+        <div class="miss">received ${num(s.leads_received)} · last sync ${
+          when(s.last_sync_at)}</div>
+      </div></div>`;
+  }).join("");
+
+  $("hookTable").innerHTML = data.recent_webhooks.length ? tableFrom(
+    [{ label: "Received" }, { label: "Source" }, { label: "Event" },
+     { label: "Signature" }, { label: "Result" }],
+    data.recent_webhooks.map((w) => [
+      when(w.received_at), esc(w.source_key), esc(w.event || "—"),
+      w.signature_valid ? `<span class="chip ok">verified</span>`
+        : `<span class="chip over">rejected</span>`,
+      w.lead_id ? `<a data-lead="${w.lead_id}" href="#">lead #${w.lead_id}</a>`
+        : esc(w.reject_reason || "—"),
+    ])) : `<div class="empty">No webhooks received yet.</div>`;
+  wireLeadLinks($("hookTable"));
+}
+
+/* =================================================================== team */
+/* There is deliberately no signup form anywhere in this app. Accounts are made
+   here by an admin, because the CRM reads leads with phone numbers in them and a
+   public signup would hand that to anyone who found the URL. */
+async function renderTeam() {
+  let staff = [];
+  try {
+    staff = (await api("/api/auth/staff")).staff;
+  } catch (error) {
+    $("staffTable").innerHTML = `<div class="empty">${esc(error.message)}</div>`;
+    return;
+  }
+  const isAdmin = state.user.role === "admin";
+  $("addStaffCard").classList.toggle("hide", !isAdmin);
+
+  $("staffTable").innerHTML = tableFrom(
+    [{ label: "Email" }, { label: "Name" }, { label: "Role" },
+     { label: "Last sign-in" }, { label: "State" },
+     ...(isAdmin ? [{ label: "" }] : [])],
+    staff.map((s) => {
+      const disabled = !!s.disabled_at;
+      const self = s.id === state.user.id;
+      const actions = !isAdmin ? [] : [
+        self
+          // An admin disabling or demoting themselves can lock the whole team out,
+          // so the UI doesn't offer it and the API refuses it too.
+          ? `<span class="chip">you</span>`
+          : `<select class="ctl" data-role-for="${s.id}" style="padding:4px 7px">
+               ${["agent", "manager", "admin"].map((r) =>
+                 `<option value="${r}"${r === s.role ? " selected" : ""}>${r}</option>`
+               ).join("")}
+             </select>
+             <button class="ctl" data-toggle-for="${s.id}"
+               data-disable="${disabled ? "0" : "1"}" style="padding:4px 9px">
+               ${disabled ? "Enable" : "Disable"}</button>`,
+      ];
+      return [
+        esc(s.email), esc(s.name || "—"),
+        `<span class="chip">${esc(s.role)}</span>`,
+        s.last_login_at ? when(s.last_login_at)
+          : `<span class="chip">never</span>`,
+        disabled ? `<span class="chip over">disabled</span>`
+          : `<span class="chip ok">active</span>`,
+        ...actions,
+      ];
+    }));
+
+  $("staffTable").querySelectorAll("[data-role-for]").forEach((sel) => {
+    sel.onchange = () => patchStaff(sel.dataset.roleFor, { role: sel.value });
+  });
+  $("staffTable").querySelectorAll("[data-toggle-for]").forEach((btn) => {
+    btn.onclick = () => patchStaff(btn.dataset.toggleFor,
+      { disabled: btn.dataset.disable === "1" });
+  });
+}
+
+async function patchStaff(id, body) {
+  try {
+    await api(`/api/auth/staff/${id}`,
+      { method: "PATCH", body: JSON.stringify(body) });
+    await renderTeam();
+    // The owner dropdown in the lead drawer comes from this list.
+    state.owners = (await api("/api/auth/me")).owners || [];
+  } catch (error) {
+    $("sErr").textContent = error.message;
+  }
+}
+
+function generatePassword() {
+  const alphabet = "abcdefghijkmnopqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+  const pick = (n) => Array.from(
+    crypto.getRandomValues(new Uint8Array(n)),
+    (byte) => alphabet[byte % alphabet.length]).join("");
+  return `${pick(4)}-${pick(4)}-${pick(4)}`;
+}
+
+/* ================================================================= drawer */
+async function openLead(id) {
+  const data = await api(`/api/leads/${id}`);
+  state.lead = data;
+  const l = data.lead;
+  const canManage = state.user.role !== "agent";
+
+  const fields = data.fields.length ? `<dl class="kv">${data.fields.map((f) => {
+    const isMoney = /budget/.test(f.field_key);
+    return `<dt>${esc(f.label || pretty(f.field_key))}</dt><dd>${
+      isMoney ? money(f.value) : esc(pretty(f.value))}${
+      f.needs_confirmation
+        ? ` <span class="chip over" title="Inferred rather than stated — confirm with the buyer">confirm</span>`
+        : ""}</dd>`;
+  }).join("")}</dl>` : `<div class="empty">No captured fields.</div>`;
+
+  $("drawer").innerHTML = `
+    <div class="row">
+      <h2>${esc(l.name || "Unnamed lead")}</h2>
+      ${chip(l.qualification)}
+      <span class="grow"></span>
+      <button class="ctl" id="dClose">Close</button>
+    </div>
+    <div class="sub" style="color:var(--muted);font-size:12px;margin-top:4px">
+      ${esc(l.external_id)} · ${esc(l.source_key)} · score ${l.score}
+    </div>
+
+    ${l.phone ? `<div class="row" style="margin-top:12px">
+      <button class="ctl dial" data-comm-call="${l.id}">📞 Call</button>
+      <button class="ctl wa" data-comm-wa="${l.id}">🟢 WhatsApp</button>
+      <span class="sub" id="commNote-${l.id}"
+            style="color:var(--muted);font-size:12px"></span>
+    </div>` : ""}
+
+    <dl class="kv">
+      <dt>Phone</dt><dd>${l.phone
+        ? `<a href="tel:${esc(l.phone)}">${esc(l.phone)}</a>` : "—"}</dd>
+      <dt>Email</dt><dd>${l.email
+        ? `<a href="mailto:${esc(l.email)}">${esc(l.email)}</a>` : "—"}</dd>
+      <dt>Portal</dt><dd>${esc(l.portal || "—")}</dd>
+      <dt>Language</dt><dd>${esc(l.language || "—")}</dd>
+      <dt>Captured</dt><dd>${when(l.captured_at)}</dd>
+      <dt>First response</dt><dd>${l.first_response_at
+        ? `${when(l.first_response_at)} (${hours(data.response_hours)})`
+        : `<span class="chip over">not yet contacted</span>`}</dd>
+      <dt>Contact came from</dt><dd>${
+        l.contact_source === "account"
+          ? `their account <span class="chip">weaker signal — not volunteered in chat</span>`
+          : l.contact_source === "mixed"
+            ? "chat + their account"
+            : "the conversation"}${
+        l.has_account ? ` · <span class="chip">has an account</span>` : ""}</dd>
+      <dt>Consent</dt><dd>${l.consent_given
+        ? `chat notice accepted · ${esc(l.consent_version || "")}`
+        : "chat notice not recorded"}</dd>
+      <dt>Marketing</dt><dd>${l.marketing_opt_in
+        ? `<span class="chip ok">opted in</span> may be added to nurture sequences`
+        : `<span class="chip over">no marketing consent</span> respond to this
+           enquiry only — do not add to campaigns`}</dd>
+      <dt>Attribution</dt><dd>${esc(l.utm_campaign || l.referrer || "direct")}${
+        l.utm_source ? ` · ${esc(l.utm_source)}` : ""}</dd>
+      <dt>Channel</dt><dd>${esc(l.channel || "—")} · ${l.message_count} messages
+        · ${l.session_count} session(s)</dd>
+    </dl>
+
+    <div class="sec-h">Captured requirements</div>
+    ${fields}
+
+    <div class="sec-h">Sales</div>
+    <div class="row">
+      <select class="ctl" id="dStatus">
+        ${["new", "contacted", "qualified", "converted", "lost", "spam"]
+          .map((s) => `<option value="${s}"${s === l.status ? " selected" : ""}>${
+            pretty(s)}</option>`).join("")}
+      </select>
+      <select class="ctl" id="dOwner" ${canManage ? "" : "disabled"}>
+        <option value="">Unassigned</option>
+        ${state.owners.map((o) => `<option value="${esc(o)}"${
+          o === l.assigned_owner ? " selected" : ""}>${esc(o)}</option>`).join("")}
+      </select>
+      <button class="ctl on" id="dSave">Save</button>
+      <span id="dSaved" style="color:var(--good-text);font-size:12px"></span>
+    </div>
+
+    ${data.duplicates.length ? `<div class="sec-h">Same person, other sources</div>
+      <div class="banner">This buyer also appears as ${data.duplicates.map((d) =>
+        `<a data-lead="${d.id}" href="#">${esc(d.source_key)} ${esc(d.external_id)}</a>`
+        ).join(", ")}. The rows are kept separate on purpose — each records what
+        that source captured.</div>` : ""}
+
+    <div class="sec-h">Conversation</div>
+    ${l.source_key === "chatbot"
+      ? `<button class="ctl" id="dTranscript">Load transcript</button>
+         <div id="dTranscriptBox" style="margin-top:10px"></div>`
+      : `<div class="empty">This source has no conversation.</div>`}
+
+    <div class="sec-h">Notes</div>
+    <textarea id="dNote" placeholder="What happened on the call…"></textarea>
+    <div class="row" style="margin-top:8px">
+      <button class="ctl" id="dAddNote">Add note</button></div>
+    <div id="dNotes" style="margin-top:12px">${renderNotes(data.notes)}</div>
+
+    <div class="sec-h">Activity</div>
+    <div style="font-size:12px;color:var(--ink-2)">
+      ${data.activity.map((a) => `<div style="margin-bottom:5px">
+        <span style="color:var(--muted)">${when(a.created_at)}</span>
+        · ${esc(a.kind)} · ${esc(a.actor)}
+        ${a.detail ? `<span style="color:var(--muted)"> — ${
+          esc(typeof a.detail === "string" ? a.detail
+            : JSON.stringify(a.detail)).slice(0, 140)}</span>` : ""}
+      </div>`).join("")}
+    </div>`;
+
+  $("drawer").classList.add("open");
+  $("scrim").classList.add("open");
+  $("dClose").onclick = closeDrawer;
+  wireLeadLinks($("drawer"));
+  wireComms($("drawer"), l);
+
+  $("dSave").onclick = async () => {
+    const body = { status: $("dStatus").value };
+    if (canManage) body.assigned_owner = $("dOwner").value || null;
+    try {
+      const result = await api(`/api/leads/${id}`,
+        { method: "PATCH", body: JSON.stringify(body) });
+      $("dSaved").textContent = result.mirrored_to_source
+        ? "Saved · mirrored to the assistant" : "Saved";
+      await refresh();
+    } catch (error) { $("dSaved").textContent = error.message; }
+  };
+
+  $("dAddNote").onclick = async () => {
+    const text = $("dNote").value.trim();
+    if (!text) return;
+    const result = await api(`/api/leads/${id}/notes`,
+      { method: "POST", body: JSON.stringify({ body: text }) });
+    $("dNote").value = "";
+    $("dNotes").innerHTML = renderNotes(result.notes);
+  };
+
+  const tBtn = $("dTranscript");
+  if (tBtn) {
+    tBtn.onclick = async () => {
+      tBtn.disabled = true;
+      tBtn.textContent = "Loading…";
+      try {
+        const result = await api(`/api/leads/${id}/transcript`, { method: "POST" });
+        $("dTranscriptBox").innerHTML = `<div class="transcript">${
+          result.messages.map((m) => m.role === "tool"
+            ? `<div class="t-msg tool">· ${esc(m.tool_name)}${
+                m.tool_found === 0 ? " (no match)" : ""}</div>`
+            : `<div class="t-msg"><div class="who">${
+                m.role === "user" ? "Visitor" : "Assistant"}</div>
+               <div class="body">${esc(m.content || "")}</div></div>`
+          ).join("")}</div>`;
+        tBtn.classList.add("hide");
+      } catch (error) {
+        $("dTranscriptBox").innerHTML =
+          `<div class="banner">${esc(error.message)}</div>`;
+        tBtn.disabled = false;
+        tBtn.textContent = "Retry";
+      }
+    };
+    if (data.transcript) tBtn.click();
+  }
+}
+
+/* ================================================================== comms */
+/* WhatsApp + SIP calling. When a channel's API credentials are in .env the
+   buttons go through the server (send / originate, logged there); while
+   pending they fall back to wa.me / tel: links that work today on the
+   consultant's own device — and the attempt is still POSTed to
+   /contact-attempt so first_response_at and the activity trail stay honest. */
+function digitsFor(phone) {
+  let d = String(phone || "").replace(/\D/g, "");
+  if (d.startsWith("00")) d = d.slice(2);
+  else if (d.startsWith("0")) d = "92" + d.slice(1);
+  return d;
+}
+
+async function loadComms() {
+  try { state.comms = (await api("/api/comms/status")).channels; }
+  catch { state.comms = null; }
+}
+
+function commNote(id, text) {
+  const el = $(`commNote-${id}`) || $("cmCommNote");
+  if (el) el.textContent = text;
+}
+
+async function doCall(id, phone) {
+  if (state.comms?.sip?.status === "live") {
+    try {
+      const result = await api(`/api/leads/${id}/call`, { method: "POST" });
+      commNote(id, `Ringing via PBX → ${result.to}`);
+    } catch (error) { commNote(id, error.message); }
+    return;
+  }
+  location.href = `tel:+${digitsFor(phone)}`;
+  try {
+    await api(`/api/leads/${id}/contact-attempt`, { method: "POST",
+      body: JSON.stringify({ channel: "call" }) });
+  } catch { /* logging is best-effort */ }
+  commNote(id, `SIP API pending (${(state.comms?.sip?.missing_config || [])
+    .join(", ") || "see Settings"}) — opened your softphone; attempt logged.`);
+}
+
+async function doWhatsApp(id, phone, name) {
+  if (state.comms?.whatsapp?.status === "live") {
+    const message = prompt(`WhatsApp message to ${name || "this lead"}:`,
+      "Assalam o alaikum! This is Riphah Properties following up on your enquiry.");
+    if (!message) return;
+    try {
+      const result = await api(`/api/leads/${id}/whatsapp`, { method: "POST",
+        body: JSON.stringify({ message }) });
+      commNote(id, `Sent via Business API → ${result.to}`);
+    } catch (error) { commNote(id, error.message); }
+    return;
+  }
+  window.open(`https://wa.me/${digitsFor(phone)}`, "_blank");
+  try {
+    await api(`/api/leads/${id}/contact-attempt`, { method: "POST",
+      body: JSON.stringify({ channel: "whatsapp" }) });
+  } catch { /* logging is best-effort */ }
+  commNote(id, `WhatsApp API pending (${
+    (state.comms?.whatsapp?.missing_config || []).join(", ") || "see Settings"
+    }) — opened wa.me; attempt logged.`);
+}
+
+function wireComms(root, lead) {
+  const callBtn = root.querySelector("[data-comm-call]");
+  const waBtn = root.querySelector("[data-comm-wa]");
+  if (callBtn) callBtn.onclick = () => doCall(lead.id, lead.phone);
+  if (waBtn) waBtn.onclick = () => doWhatsApp(lead.id, lead.phone, lead.name);
+}
+
+function renderComms() {
+  const channels = state.comms ? Object.values(state.comms) : [];
+  $("commCards").innerHTML = channels.length ? channels.map((c) => {
+    const live = c.status === "live";
+    const color = live ? cssVar("--good") : cssVar("--warning");
+    return `<div class="src">
+      <span class="dot" style="background:${color}"></span>
+      <div>
+        <h4>${esc(c.display_name)}
+          <span class="chip ${live ? "ok" : ""}">${esc(c.status)}</span></h4>
+        <div class="detail">${esc(c.detail || "")}</div>
+        ${c.missing_config?.length
+          ? `<div class="miss">missing: ${c.missing_config.map(esc).join(", ")}</div>`
+          : ""}
+      </div></div>`;
+  }).join("") : `<div class="empty">Status unavailable.</div>`;
+}
+
+/* ============================================================ chat monitor */
+function avaColor(name) {
+  let hue = 0;
+  for (const ch of String(name)) hue = (hue * 31 + ch.charCodeAt(0)) % 360;
+  return `hsl(${hue} 52% 44%)`;
+}
+
+async function loadChats() {
+  const q = $("cmSearch").value.trim();
+  let data;
+  try {
+    data = await api(`/api/chats${q ? `?search=${encodeURIComponent(q)}` : ""}`);
+  } catch (error) {
+    $("cmList").innerHTML = `<div class="empty">${esc(error.message)}</div>`;
+    return;
+  }
+  state.chats = data.chats;
+  if (!data.chats.length) {
+    $("cmList").innerHTML = `<div class="empty">No chatbot conversations${
+      q ? " match that search" : " yet"}.</div>`;
+    return;
+  }
+  $("cmList").innerHTML = data.chats.map((c) => {
+    const name = c.name || c.email || c.phone || c.external_id;
+    const initial = esc(String(name).trim().charAt(0).toUpperCase() || "?");
+    const preview = c.preview
+      || `${c.message_count || "?"} messages — open to load the conversation`;
+    return `<div class="cm-row${c.id === state.chatOpen ? " on" : ""}"
+                 data-chat="${c.id}">
+      <div class="cm-ava" style="background:${avaColor(name)}">${initial}</div>
+      <div class="cm-mid">
+        <div class="cm-name"><span class="t">${esc(name)}</span>
+          <span class="w">${when(c.captured_at)}</span></div>
+        <div class="cm-prev">${esc(preview)}</div>
+        <span class="chip ${esc(c.qualification)}">${esc(c.qualification)}</span>
+        <span class="chip">${esc(c.external_id)}</span>
+        ${c.channel && c.channel !== "text"
+          ? `<span class="chip">${esc(c.channel)}</span>` : ""}
+      </div>
+    </div>`;
+  }).join("");
+  for (const row of $("cmList").querySelectorAll("[data-chat]")) {
+    row.onclick = () => openChatMon(+row.dataset.chat);
+  }
+}
+
+async function openChatMon(id) {
+  state.chatOpen = id;
+  for (const row of $("cmList").querySelectorAll("[data-chat]")) {
+    row.classList.toggle("on", +row.dataset.chat === id);
+  }
+  const chat = (state.chats || []).find((c) => c.id === id) || {};
+  const name = chat.name || chat.email || chat.phone || chat.external_id;
+  $("cmHead").classList.remove("hide");
+  $("cmHead").innerHTML = `
+    <div class="cm-ava" style="background:${avaColor(name)};width:32px;height:32px;font-size:13px">${
+      esc(String(name).trim().charAt(0).toUpperCase() || "?")}</div>
+    <strong>${esc(name)}</strong>
+    <span class="chip ${esc(chat.qualification)}">${esc(chat.qualification)}</span>
+    <span class="sub">This lead was captured from this conversation —
+      ${esc(chat.external_id)}</span>
+    <span class="grow"></span>
+    ${chat.phone ? `
+      <button class="ctl dial" data-comm-call="${chat.id}">📞 Call</button>
+      <button class="ctl wa" data-comm-wa="${chat.id}">🟢 WhatsApp</button>` : ""}
+    <button class="ctl" id="cmOpenLead">Open lead</button>
+    <span class="sub" id="cmCommNote" style="flex-basis:100%"></span>`;
+  $("cmOpenLead").onclick = () => openLead(id);
+  wireComms($("cmHead"), chat);
+  $("cmBody").innerHTML = `<div class="empty">Loading conversation…</div>`;
+  try {
+    const result = await api(`/api/leads/${id}/transcript`, { method: "POST" });
+    if (state.chatOpen !== id) return;  // user already clicked another chat
+    $("cmBody").innerHTML = result.messages.map((m) => {
+      if (m.role === "tool") {
+        return `<div class="cm-tool">⚙ ${esc(m.tool_name || "tool")}${
+          m.tool_found === 0 ? " — no match" : ""}</div>`;
+      }
+      if (!m.content) return "";
+      return `<div class="cm-msg ${esc(m.role)}"><div class="bub">${
+        esc(m.content)}${m.created_at
+          ? `<div class="stamp">${when(m.created_at)}${
+              m.channel === "voice" ? " · 🎙 voice" : ""}</div>` : ""}</div></div>`;
+    }).join("") || `<div class="empty">The transcript is empty.</div>`;
+    $("cmBody").scrollTop = 0;
+  } catch (error) {
+    if (state.chatOpen !== id) return;
+    $("cmBody").innerHTML = `<div class="banner">${esc(error.message)}</div>`;
+  }
+}
+
+let cmSearchTimer = null;
+
+function renderNotes(notes) {
+  return notes.length ? notes.map((n) => `<div class="note-item">
+    <div class="meta">${esc(n.author)} · ${when(n.created_at)}</div>
+    <div>${esc(n.body)}</div></div>`).join("")
+    : `<div class="empty" style="padding:12px 0">No notes yet.</div>`;
+}
+
+function closeDrawer() {
+  $("drawer").classList.remove("open");
+  $("scrim").classList.remove("open");
+}
+
+/* ================================================================ shell */
+async function refresh() {
+  state.dash = await api(`/api/analytics/dashboard?days=${state.days}`);
+  renderOverview();
+  if (state.tab === "analytics") renderAnalytics();
+  if (state.tab === "leads") await loadLeads();
+
+  const sources = state.dash.sources.map((s) => s.key);
+  const sel = $("fSource");
+  if (sel.options.length <= 1) {
+    sel.innerHTML = `<option value="">All sources</option>` +
+      sources.map((s) => `<option value="${esc(s)}">${esc(s)}</option>`).join("");
+  }
+  // A pending source is worth surfacing outside the integrations tab — it is a
+  // gap in the pipeline, not a settings detail.
+  const pending = state.dash.sources.filter((s) => s.status === "pending");
+  $("syncNote").innerHTML = pending.length
+    ? `<div class="banner" style="margin-bottom:16px">
+        <strong>${esc(pending.map((p) => p.display_name).join(", "))}</strong> is
+        pending. ${esc(pending[0].detail)}</div>` : "";
+}
+
+function showTab(name) {
+  state.tab = name;
+  for (const node of $("tabs").children) node.classList.toggle("on",
+    node.dataset.tab === name);
+  for (const key of ["overview", "leads", "chats", "analytics", "settings"]) {
+    $(`tab-${key}`).classList.toggle("hide", key !== name);
+  }
+  if (name === "analytics") renderAnalytics();
+  if (name === "leads") loadLeads();
+  if (name === "chats") loadChats();
+  // Settings holds both panes now: integration state and the consultant roster.
+  if (name === "settings") {
+    api("/api/sources").then(renderIntegrations);
+    loadComms().then(renderComms);
+    renderTeam();
+  }
+}
+
+async function start() {
+  const me = await api("/api/auth/me");
+  if (!me.user) { $("loginView").classList.remove("hide"); return; }
+  state.user = me.user;
+  state.owners = me.owners || [];
+  $("loginView").classList.add("hide");
+  $("appView").classList.remove("hide");
+  $("whoami").textContent = `${me.user.email} · ${me.user.role}`;
+  // Export is a manager-and-above action; hiding it for agents matches the API.
+  if (me.user.role === "agent") $("exportBtn").classList.add("hide");
+  // Team administration is manager+ to view, admin to change.
+  if (me.user.role !== "agent") $("settingsTab").classList.remove("hide");
+  loadComms();  // channel status for the Call / WhatsApp buttons
+  await refresh();
+  showTab("overview");
+}
+
+/* ---------------------------------------------------------------- wiring */
+$("lBtn").onclick = async () => {
+  $("lErr").textContent = "";
+  try {
+    await api("/api/auth/login", { method: "POST", body: JSON.stringify({
+      email: $("lEmail").value.trim(), password: $("lPass").value }) });
+    location.reload();
+  } catch (error) { $("lErr").textContent = error.message; }
+};
+$("lPass").addEventListener("keydown", (e) => { if (e.key === "Enter") $("lBtn").click(); });
+
+$("outBtn").onclick = async () => {
+  await api("/api/auth/logout", { method: "POST" });
+  location.reload();
+};
+
+$("rangeSeg").onclick = (event) => {
+  const button = event.target.closest("button[data-days]");
+  if (!button) return;
+  state.days = +button.dataset.days;
+  for (const node of $("rangeSeg").children) node.classList.toggle("on", node === button);
+  state.offset = 0;
+  refresh();
+};
+
+$("tabs").onclick = (event) => {
+  const button = event.target.closest("button[data-tab]");
+  if (button) showTab(button.dataset.tab);
+};
+
+$("cmSearch").addEventListener("input", () => {
+  clearTimeout(cmSearchTimer);
+  cmSearchTimer = setTimeout(loadChats, 250);
+});
+
+$("syncBtn").onclick = async () => {
+  $("syncBtn").disabled = true;
+  $("syncBtn").textContent = "Syncing…";
+  try {
+    const result = await api("/api/sync", { method: "POST" });
+    $("syncBtn").textContent = result.ok
+      ? `+${result.created} new` : "Sync failed";
+    if (!result.ok) {
+      $("syncNote").innerHTML =
+        `<div class="banner" style="margin-bottom:16px">Sync failed: ${
+          esc(result.reason)}</div>`;
+    }
+    await refresh();
+  } catch (error) {
+    $("syncBtn").textContent = "Failed";
+    $("syncNote").innerHTML = `<div class="banner" style="margin-bottom:16px">${
+      esc(error.message)}</div>`;
+  } finally {
+    setTimeout(() => { $("syncBtn").disabled = false;
+                       $("syncBtn").textContent = "Sync"; }, 2600);
+  }
+};
+
+$("exportBtn").onclick = () => {
+  location.href = `/api/analytics/export.csv?days=${state.days}`;
+};
+
+$("themeBtn").onclick = () => {
+  const root = document.documentElement;
+  const dark = root.getAttribute("data-theme") === "dark"
+    || (!root.hasAttribute("data-theme")
+        && matchMedia("(prefers-color-scheme: dark)").matches);
+  root.setAttribute("data-theme", dark ? "light" : "dark");
+  // Charts read their colours from CSS variables, so a repaint is all it takes.
+  if (state.dash) {
+    renderOverview();
+    if (state.tab === "analytics") renderAnalytics();
+    if (state.tab === "leads") renderLeads();
+  }
+};
+
+// Table view toggles — the accessibility relief for the two sub-3:1 palette slots.
+document.querySelectorAll("[data-table]").forEach((button) => {
+  button.onclick = () => {
+    const box = $(`${button.dataset.table}-table`);
+    const hidden = box.classList.toggle("hide");
+    button.textContent = hidden ? "Table" : "Chart";
+  };
+});
+
+for (const id of ["fTier", "fStatus", "fSource", "fOwner", "fSort",
+                  "fUnassigned", "fUnconfirmed"]) {
+  $(id).onchange = () => { state.offset = 0; loadLeads(); };
+}
+let searchTimer;
+$("fSearch").oninput = () => {
+  clearTimeout(searchTimer);
+  searchTimer = setTimeout(() => { state.offset = 0; loadLeads(); }, 280);
+};
+$("prevPage").onclick = () => {
+  state.offset = Math.max(0, state.offset - state.limit);
+  loadLeads();
+};
+$("nextPage").onclick = () => { state.offset += state.limit; loadLeads(); };
+$("sGen").onclick = () => { $("sPass").value = generatePassword(); };
+$("sAdd").onclick = async () => {
+  $("sErr").textContent = "";
+  $("sOk").style.display = "none";
+  const email = $("sEmail").value.trim();
+  const password = $("sPass").value;
+  if (!email || !password) {
+    $("sErr").textContent = "Email and password are both needed.";
+    return;
+  }
+  $("sAdd").disabled = true;
+  try {
+    const result = await api("/api/auth/staff", {
+      method: "POST",
+      body: JSON.stringify({ email, password, name: $("sName").value.trim() || null,
+                             role: $("sRole").value }),
+    });
+    // Shown once and only here: nothing stores the plaintext, so this is the only
+    // chance to hand it over.
+    $("sOk").style.display = "block";
+    $("sOk").innerHTML =
+      `Created <strong>${esc(result.staff.email)}</strong> as ${
+        esc(result.staff.role)}. Password: <strong>${esc(password)}</strong><br>
+       Give it to them over a channel you trust — it is not stored anywhere and
+       cannot be shown again.`;
+    $("sEmail").value = $("sName").value = $("sPass").value = "";
+    await renderTeam();
+    state.owners = (await api("/api/auth/me")).owners || [];
+  } catch (error) {
+    $("sErr").textContent = error.message;
+  } finally {
+    $("sAdd").disabled = false;
+  }
+};
+
+$("scrim").onclick = closeDrawer;
+document.addEventListener("keydown", (e) => {
+  if (e.key === "Escape") closeDrawer();
+});
+addEventListener("resize", () => {
+  if (state.dash && state.tab === "overview") drawTimeseries(state.dash.timeseries);
+});
+
+start().catch((error) => {
+  $("loginView").classList.remove("hide");
+  $("lErr").textContent = error.message;
+});
+</script>
+</body>
+</html>

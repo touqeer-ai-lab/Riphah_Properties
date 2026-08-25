@@ -1,0 +1,424 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Riphah — Chat Monitor</title>
+<style>
+  /* Same design tokens as index.html, so the two surfaces read as one product. */
+  :root {
+    --accent: #0f5c8c;
+    --accent-soft: #e6f0f7;
+    --bg: #f6f7f9;
+    --panel: #ffffff;
+    --ink: #16202a;
+    --ink-soft: #5a6a78;
+    --line: #dfe4ea;
+    --hot: #b3261e;
+    --warm: #a2670a;
+    --cold: #4a5866;
+    --radius: 12px;
+    --shadow: 0 1px 2px rgba(16,32,42,.06), 0 8px 24px rgba(16,32,42,.06);
+  }
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #10151a; --panel: #171e25; --ink: #e8edf2; --ink-soft: #9aa8b5;
+      --line: #27313b; --accent-soft: #1b2b38;
+    }
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; margin: 0; }
+  body {
+    font: 15px/1.55 -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+          "Helvetica Neue", sans-serif;
+    background: var(--bg); color: var(--ink);
+  }
+  button { font: inherit; cursor: pointer; }
+  input { font: inherit; }
+
+  /* ---------------------------------------------------------------- sign-in */
+  #gate {
+    position: fixed; inset: 0; display: grid; place-items: center;
+    background: var(--bg); z-index: 10;
+  }
+  .card {
+    background: var(--panel); border: 1px solid var(--line);
+    border-radius: var(--radius); box-shadow: var(--shadow);
+    padding: 28px; width: min(360px, calc(100vw - 32px));
+  }
+  .card h1 { font-size: 17px; margin: 0 0 4px; }
+  .card p { margin: 0 0 16px; font-size: 13px; color: var(--ink-soft); }
+  .card label { display: block; font-size: 12px; color: var(--ink-soft); margin: 10px 0 4px; }
+  .card input {
+    width: 100%; padding: 9px 11px; border: 1px solid var(--line);
+    border-radius: 9px; background: var(--bg); color: var(--ink);
+  }
+  .card button {
+    margin-top: 16px; width: 100%; padding: 10px; border: none;
+    border-radius: 9px; background: var(--accent); color: #fff; font-weight: 600;
+  }
+  .err { color: var(--hot); font-size: 13px; margin-top: 10px; min-height: 1em; }
+
+  /* ----------------------------------------------------------------- layout */
+  #shell { display: none; grid-template-columns: 340px 1fr; height: 100%; }
+  #shell.on { display: grid; }
+
+  aside {
+    background: var(--panel); border-right: 1px solid var(--line);
+    display: flex; flex-direction: column; min-height: 0;
+  }
+  .brand { padding: 14px 16px 10px; border-bottom: 1px solid var(--line);
+           display: flex; align-items: center; gap: 10px; }
+  .brand h1 { font-size: 15px; margin: 0; flex: 1; }
+  .brand small { color: var(--ink-soft); font-size: 11px; }
+  .brand a { color: var(--accent); font-size: 12px; cursor: pointer; text-decoration: none; }
+  .search { padding: 10px 12px; border-bottom: 1px solid var(--line); }
+  .search input {
+    width: 100%; padding: 8px 12px; border: 1px solid var(--line);
+    border-radius: 20px; background: var(--bg); color: var(--ink);
+  }
+
+  #list { overflow-y: auto; flex: 1; }
+  .row {
+    display: flex; gap: 10px; padding: 11px 14px; cursor: pointer;
+    border-bottom: 1px solid var(--line); align-items: flex-start;
+  }
+  .row:hover { background: var(--accent-soft); }
+  .row.active { background: var(--accent-soft); box-shadow: inset 3px 0 0 var(--accent); }
+  .avatar {
+    width: 40px; height: 40px; border-radius: 50%; flex: none;
+    display: grid; place-items: center; font-weight: 600; font-size: 15px;
+    background: var(--accent-soft); color: var(--accent);
+    border: 1px solid var(--line);
+  }
+  .row .mid { flex: 1; min-width: 0; }
+  .row .name-line { display: flex; align-items: baseline; gap: 6px; }
+  .row .name {
+    font-weight: 600; font-size: 13.5px; overflow: hidden;
+    text-overflow: ellipsis; white-space: nowrap; flex: 1;
+  }
+  .row .when { font-size: 11px; color: var(--ink-soft); flex: none; }
+  .row .preview {
+    font-size: 12.5px; color: var(--ink-soft); overflow: hidden;
+    text-overflow: ellipsis; white-space: nowrap; margin-top: 1px;
+  }
+  .badges { margin-top: 3px; display: flex; gap: 4px; flex-wrap: wrap; }
+  .pill {
+    font-size: 10px; padding: 1px 7px; border-radius: 20px;
+    border: 1px solid var(--line); color: var(--ink-soft);
+  }
+  .pill.hot  { border-color: var(--hot);  color: var(--hot);  font-weight: 600; }
+  .pill.warm { border-color: var(--warm); color: var(--warm); }
+  .pill.cold { border-color: var(--cold); color: var(--cold); }
+  .pill.live { border-color: #2f9e44; color: #2f9e44; }
+  .empty { padding: 32px 16px; text-align: center; color: var(--ink-soft); font-size: 13px; }
+
+  /* ------------------------------------------------------------------- main */
+  main { display: flex; flex-direction: column; min-height: 0; min-width: 0; }
+  header {
+    padding: 12px 20px; border-bottom: 1px solid var(--line);
+    background: var(--panel); display: flex; gap: 12px; align-items: center;
+    min-height: 62px;
+  }
+  header .title { font-weight: 600; }
+  header .meta { font-size: 12px; color: var(--ink-soft); }
+  header .spacer { flex: 1; }
+
+  #leadbar {
+    display: none; padding: 8px 20px; font-size: 12.5px;
+    background: var(--accent-soft); border-bottom: 1px solid var(--line);
+    color: var(--ink);
+  }
+  #leadbar b { color: var(--accent); }
+  #leadbar .warn { color: var(--hot); }
+
+  #log { flex: 1; overflow-y: auto; padding: 20px; }
+  .wrap { max-width: 780px; margin: 0 auto; }
+  .day { text-align: center; font-size: 11px; color: var(--ink-soft); margin: 14px 0; }
+  .msg { display: flex; margin-bottom: 10px; }
+  .msg .bubble {
+    max-width: 72%; padding: 8px 13px; border-radius: 14px;
+    white-space: pre-wrap; overflow-wrap: anywhere; font-size: 14px;
+    box-shadow: var(--shadow);
+  }
+  .msg.user { justify-content: flex-start; }
+  .msg.user .bubble {
+    background: var(--panel); border: 1px solid var(--line);
+    border-bottom-left-radius: 4px;
+  }
+  .msg.assistant { justify-content: flex-end; }
+  .msg.assistant .bubble {
+    background: var(--accent); color: #fff; border-bottom-right-radius: 4px;
+  }
+  .msg .stamp { font-size: 10px; opacity: .65; margin-top: 3px; }
+  .tool {
+    font-size: 11px; color: var(--ink-soft); margin: 2px 0 10px;
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace; text-align: center;
+  }
+  .captured { margin: 14px auto 0; max-width: 780px; }
+  .captured .chip {
+    display: inline-block; font-size: 11px; border: 1px solid var(--line);
+    border-radius: 20px; padding: 2px 9px; margin: 2px 3px 2px 0;
+    color: var(--ink-soft); background: var(--panel);
+  }
+  .captured .chip b { color: var(--ink); font-weight: 600; }
+  #placeholder {
+    flex: 1; display: grid; place-items: center; color: var(--ink-soft);
+    font-size: 14px; text-align: center; padding: 20px;
+  }
+</style>
+</head>
+<body>
+
+<div id="gate">
+  <div class="card">
+    <h1>Riphah — Chat Monitor</h1>
+    <p>Staff sign-in required. Customer conversations are visible to admin and agent accounts only.</p>
+    <form id="loginForm">
+      <label>Email</label>
+      <input id="email" type="email" autocomplete="username" required>
+      <label>Password</label>
+      <input id="password" type="password" autocomplete="current-password" required>
+      <button type="submit">Sign in</button>
+      <div class="err" id="loginErr"></div>
+    </form>
+  </div>
+</div>
+
+<div id="shell">
+  <aside>
+    <div class="brand">
+      <h1>Conversations <small id="count"></small></h1>
+      <a id="logout">Sign out</a>
+    </div>
+    <div class="search">
+      <input id="q" type="search" placeholder="Search name, email or message…">
+    </div>
+    <div id="list"></div>
+  </aside>
+  <main>
+    <header>
+      <div>
+        <div class="title" id="chatTitle">Select a conversation</div>
+        <div class="meta" id="chatMeta"></div>
+      </div>
+      <div class="spacer"></div>
+      <div class="meta" id="refreshed"></div>
+    </header>
+    <div id="leadbar"></div>
+    <div id="placeholder">Left side se koi conversation choose karein —<br>list har 10 second refresh hoti hai.</div>
+    <div id="log" style="display:none"><div class="wrap" id="msgs"></div></div>
+  </main>
+</div>
+
+<script>
+(() => {
+  const $ = id => document.getElementById(id);
+  const esc = s => (s ?? "").toString()
+    .replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+
+  let chats = [];
+  let openId = null;
+  let listTimer = null, chatTimer = null;
+
+  async function api(path, options) {
+    const response = await fetch(path, options);
+    if (!response.ok) {
+      let detail = response.statusText;
+      try { detail = (await response.json()).detail || detail; } catch {}
+      const error = new Error(detail); error.status = response.status; throw error;
+    }
+    return response.json();
+  }
+
+  // ------------------------------------------------------------------ auth
+  async function boot() {
+    try {
+      const me = await api("/api/auth/me");
+      const role = me.user && me.user.role;
+      if (role === "admin" || role === "agent") { enter(); return; }
+      if (me.user) $("loginErr").textContent =
+        "Signed in as " + me.user.email + " — that account is not staff.";
+    } catch {}
+    $("gate").style.display = "grid";
+  }
+
+  $("loginForm").addEventListener("submit", async event => {
+    event.preventDefault();
+    $("loginErr").textContent = "";
+    try {
+      await api("/api/auth/login", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: $("email").value, password: $("password").value }),
+      });
+      const me = await api("/api/auth/me");
+      const role = me.user && me.user.role;
+      if (role !== "admin" && role !== "agent") {
+        $("loginErr").textContent = "This account has no staff access.";
+        return;
+      }
+      enter();
+    } catch (error) {
+      $("loginErr").textContent = error.message;
+    }
+  });
+
+  $("logout").addEventListener("click", async () => {
+    try { await api("/api/auth/logout", { method: "POST" }); } catch {}
+    location.reload();
+  });
+
+  function enter() {
+    $("gate").style.display = "none";
+    $("shell").classList.add("on");
+    refreshList();
+    listTimer = setInterval(refreshList, 10000);
+  }
+
+  // ------------------------------------------------------------------ list
+  let searchDebounce = null;
+  $("q").addEventListener("input", () => {
+    clearTimeout(searchDebounce);
+    searchDebounce = setTimeout(refreshList, 250);
+  });
+
+  function displayName(chat) {
+    return chat.lead_name || chat.user_name || chat.user_email
+        || chat.title || "Visitor";
+  }
+
+  function relTime(iso) {
+    if (!iso) return "";
+    const then = new Date(iso.includes("Z") || iso.includes("+") ? iso : iso + "Z");
+    const mins = Math.round((Date.now() - then.getTime()) / 60000);
+    if (mins < 1) return "now";
+    if (mins < 60) return mins + "m";
+    if (mins < 60 * 24) return Math.round(mins / 60) + "h";
+    return then.toLocaleDateString(undefined, { day: "numeric", month: "short" });
+  }
+
+  async function refreshList() {
+    try {
+      const q = $("q").value.trim();
+      const data = await api("/api/admin/chats?limit=150" + (q ? "&q=" + encodeURIComponent(q) : ""));
+      chats = data.chats;
+      renderList();
+      $("refreshed").textContent = "updated " + new Date().toLocaleTimeString();
+    } catch (error) {
+      if (error.status === 401 || error.status === 403) location.reload();
+    }
+  }
+
+  function renderList() {
+    $("count").textContent = chats.length ? "(" + chats.length + ")" : "";
+    if (!chats.length) {
+      $("list").innerHTML = '<div class="empty">No conversations yet.</div>';
+      return;
+    }
+    $("list").innerHTML = chats.map(chat => {
+      const name = displayName(chat);
+      const initial = esc(name.trim().charAt(0).toUpperCase() || "?");
+      const preview = (chat.last_role === "assistant" ? "AI: " : "") + (chat.last_message || "");
+      const badges = [];
+      if (chat.lead_tier) badges.push('<span class="pill ' + esc(chat.lead_tier) + '">'
+        + esc(chat.lead_tier) + (chat.lead_ref ? " · " + esc(chat.lead_ref) : "") + "</span>");
+      if (chat.status === "active") badges.push('<span class="pill live">live</span>');
+      if (chat.channel && chat.channel !== "text")
+        badges.push('<span class="pill">' + esc(chat.channel) + "</span>");
+      return '<div class="row' + (chat.id === openId ? " active" : "") + '" data-id="' + esc(chat.id) + '">'
+        + '<div class="avatar">' + initial + "</div>"
+        + '<div class="mid">'
+        +   '<div class="name-line"><span class="name">' + esc(name) + "</span>"
+        +   '<span class="when">' + relTime(chat.last_activity_at) + "</span></div>"
+        +   '<div class="preview">' + esc(preview) + "</div>"
+        +   (badges.length ? '<div class="badges">' + badges.join("") + "</div>" : "")
+        + "</div></div>";
+    }).join("");
+    for (const row of $("list").querySelectorAll(".row"))
+      row.addEventListener("click", () => openChat(row.dataset.id));
+  }
+
+  // ------------------------------------------------------------------ detail
+  async function openChat(sessionId) {
+    openId = sessionId;
+    renderList();
+    clearInterval(chatTimer);
+    await loadChat(true);
+    chatTimer = setInterval(() => loadChat(false), 10000);
+  }
+
+  async function loadChat(jumpToEnd) {
+    if (!openId) return;
+    let data;
+    try { data = await api("/api/admin/chats/" + openId); }
+    catch { return; }
+
+    const chatRow = chats.find(chat => chat.id === openId) || {};
+    $("placeholder").style.display = "none";
+    $("log").style.display = "block";
+    $("chatTitle").textContent = displayName(chatRow);
+
+    const session = data.session;
+    const metaBits = [
+      session.portal_key,
+      session.turn_count + " turns",
+      session.status + (session.sealed ? " · sealed" : ""),
+      "started " + (session.started_at || "").replace("T", " ").slice(0, 16),
+    ];
+    if (session.language) metaBits.push(session.language);
+    $("chatMeta").textContent = metaBits.join("  ·  ");
+
+    const lead = data.lead;
+    if (lead) {
+      const contact = [lead.phone, lead.email].filter(Boolean).map(esc).join(" · ");
+      $("leadbar").style.display = "block";
+      $("leadbar").innerHTML =
+        "<b>" + esc(lead.lead_ref) + "</b> — " + esc(lead.qualification)
+        + " (score " + esc(lead.score) + ") · status: " + esc(lead.status)
+        + (contact ? " · " + contact : "")
+        + " · contact via " + esc(lead.contact_source)
+        + (lead.marketing_opt_in ? "" :
+           ' · <span class="warn">no marketing consent — respond to this enquiry only</span>');
+    } else {
+      $("leadbar").style.display = "none";
+    }
+
+    const log = $("log");
+    const nearBottom = log.scrollHeight - log.scrollTop - log.clientHeight < 80;
+
+    let html = "", lastDay = "";
+    for (const message of data.messages) {
+      const day = (message.created_at || "").slice(0, 10);
+      if (day && day !== lastDay) {
+        html += '<div class="day">' + esc(day) + "</div>";
+        lastDay = day;
+      }
+      if (message.role === "tool") {
+        html += '<div class="tool">⚙ ' + esc(message.tool_name || "tool")
+          + (message.tool_found === 0 ? " — nothing found" : "") + "</div>";
+        continue;
+      }
+      if (!message.content) continue;
+      const stamp = (message.created_at || "").slice(11, 16)
+        + (message.channel === "voice" ? " · 🎙 voice" : "");
+      html += '<div class="msg ' + esc(message.role) + '"><div class="bubble">'
+        + esc(message.content)
+        + '<div class="stamp">' + esc(stamp) + "</div></div></div>";
+    }
+
+    const captured = data.captured || {};
+    const chips = Object.entries(captured)
+      .filter(([, value]) => value !== null && value !== "")
+      .map(([key, value]) => '<span class="chip">' + esc(key) + ": <b>" + esc(value) + "</b></span>");
+    if (chips.length)
+      html += '<div class="captured">' + chips.join("") + "</div>";
+
+    $("msgs").innerHTML = html;
+    if (jumpToEnd || nearBottom) log.scrollTop = log.scrollHeight;
+  }
+
+  boot();
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,18 @@
+# secrets
+.env
+
+# python
+__pycache__/
+*.py[cod]
+# both forms: a directory, and the symlink used when sharing the sibling's venv
+# during local development (a real deployment gets its own)
+.venv
+.venv/
+venv
+venv/
+
+# database, exports, demo data
+data/
+
+# os
+.DS_Store

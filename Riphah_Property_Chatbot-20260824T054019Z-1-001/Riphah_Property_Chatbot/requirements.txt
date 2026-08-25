@@ -1,0 +1,16 @@
+# --- models ---
+openai>=1.51.0            # chat, embeddings, extraction, realtime voice, whisper, tts
+
+# --- retrieval ---
+numpy>=1.26.0             # cosine similarity over the in-RAM vector store
+
+# --- ingest ---
+pymupdf>=1.24.0           # PDF text extraction (brochures, payment plan sheets)
+
+# --- backend ---
+fastapi>=0.115.0
+uvicorn[standard]>=0.32.0
+python-dotenv>=1.0.0
+pydantic>=2.10.0
+python-multipart>=0.0.9   # admin document upload
+httpx>=0.27.0             # outbound webhook delivery
