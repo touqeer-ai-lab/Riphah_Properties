@@ -71,7 +71,7 @@ def _needs_retrieval(message: str) -> bool:
 def _client():
     from openai import OpenAI
 
-    return OpenAI(api_key=config.openai_key())
+    return OpenAI(api_key=config.openai_key(), base_url=config.OPENAI_BASE_URL)
 
 
 def _to_openai_messages(history: list[dict[str, Any]]) -> list[dict[str, str]]:
@@ -259,6 +259,25 @@ def answer(message: str, *, session_id: str, portal_key: str | None = None,
         )
         reply_text = (final.choices[0].message.content or "").strip()
 
+    return _finalize(
+        reply_text=reply_text, citations=citations, trace=trace,
+        history=history, message=message, captured=captured,
+        session_id=session_id, portal_key=portal_key, language=language,
+        channel=channel, user_message_id=user_message_id,
+        run_extraction=run_extraction, usage_in=usage_in, usage_out=usage_out,
+        remaining=remaining,
+    )
+
+
+def _finalize(*, reply_text: str, citations: list[dict[str, Any]],
+              trace: list[dict[str, Any]], history: list[dict[str, Any]],
+              message: str, captured: dict[str, Any], session_id: str,
+              portal_key: str, language: str | None, channel: str,
+              user_message_id: int | None, run_extraction: bool,
+              usage_in: int, usage_out: int, remaining: int) -> dict[str, Any]:
+    """Shared tail for both the blocking and streaming paths: dedupe citations,
+    persist the reply, run extraction, assemble/deliver the lead, return the
+    turn summary. Kept in one place so the two paths cannot drift apart."""
     if not reply_text:
         reply_text = (
             "Sorry — I couldn't put that answer together. Could you rephrase it, "
@@ -273,25 +292,19 @@ def answer(message: str, *, session_id: str, portal_key: str | None = None,
                 seen[key].get("similarity") or 0):
             seen[key] = source
 
-    # Website sources sort ahead of corpus passages, and not as a preference: the
-    # website is only searched after the corpus failed to cover the question, so
-    # if a URL is here it is what the answer was actually built from. Ranking by
-    # similarity alone would drop it — a web source has no similarity score, so
-    # it sorts below every passage and falls outside the cut, leaving the visitor
-    # looking at the citations for an answer they did not get.
+    # Website sources sort ahead of corpus passages: the website is only searched
+    # after the corpus failed, so a URL here is what the answer was built from.
     citations = sorted(
         seen.values(),
         key=lambda s: (0 if s.get("url") else 1, -(s.get("similarity") or 0)),
     )[:4]
 
-    # --- 4. persist the reply ----------------------------------------------
     conversations.add_message(
         session_id, "assistant", reply_text, channel=channel,
         citations=citations, language=language,
         tokens_in=usage_in or None, tokens_out=usage_out or None,
     )
 
-    # --- 5. extraction, lead assembly, delivery -----------------------------
     lead_state: dict[str, Any] = {}
     if run_extraction:
         try:
@@ -311,9 +324,6 @@ def answer(message: str, *, session_id: str, portal_key: str | None = None,
                 lead_state = result
                 lead_state["dispatched"] = delivery.dispatch(result)
         except Exception as exc:  # noqa: BLE001
-            # The visitor already has their answer. An extraction failure must not
-            # turn a good turn into an error page — it costs a lead field, which
-            # the next turn will pick up anyway.
             print(f"[chat] extraction failed: {type(exc).__name__}: {exc}")
             db.audit("system", "extraction.failed", entity="chat_session",
                      entity_id=session_id, detail=str(exc)[:400])
@@ -333,3 +343,192 @@ def answer(message: str, *, session_id: str, portal_key: str | None = None,
         "tokens": {"in": usage_in, "out": usage_out},
         "rate_limit_remaining": remaining - 1,
     }
+
+
+def answer_stream(message: str, *, session_id: str, portal_key: str | None = None,
+                  language: str | None = None, channel: str = "text",
+                  run_extraction: bool = True):
+    """Streaming twin of `answer()`. A generator that yields event dicts:
+
+        {"type": "tool",  "label": "..."}          a tool ran (for a status line)
+        {"type": "delta", "text": "..."}           a chunk of the reply
+        {"type": "done",  ...same shape as answer()...}
+        {"type": "error", "detail": "...", "status": 503}
+
+    The reply text is streamed token-by-token as the model produces it; the tool
+    loop, retrieval, extraction, scoring and CRM delivery are identical to the
+    blocking path — only the final prose is streamed instead of returned whole.
+    """
+    portal_key = portal_key or config.DEFAULT_PORTAL
+    registry.get(portal_key)  # validates the portal
+
+    message = (message or "").strip()
+    if not message:
+        yield {"type": "error", "detail": "empty message", "status": 422}
+        return
+    if len(message) > config.MAX_MESSAGE_CHARS:
+        message = message[:config.MAX_MESSAGE_CHARS]
+
+    limited, remaining = conversations.rate_limit_exceeded(session_id)
+    if limited:
+        text = ("You've sent a lot of messages in a short time, so I need to pause "
+                "for a few minutes. If something is urgent, ask for a consultant "
+                "and I'll pass your enquiry on.")
+        yield {"type": "delta", "text": text}
+        yield {"type": "done", "answer": text, "rate_limited": True,
+               "trace": [], "citations": [], "lead": {},
+               "captured": store.captured_for_session(session_id),
+               "rate_limit_remaining": 0}
+        return
+
+    if not config.has_openai_key():
+        yield {"type": "error", "status": 503,
+               "detail": "OPENAI_API_KEY is not configured on the server."}
+        return
+
+    # --- setup: identical to answer() ---------------------------------------
+    history = conversations.history(session_id)
+    user_message_id = conversations.add_message(
+        session_id, "user", message, channel=channel, language=language)
+
+    captured = store.captured_for_session(session_id)
+    outstanding = store.outstanding_for(portal_key, captured)
+    system = prompts.system_prompt(
+        registry.get(portal_key), captured=captured, outstanding=outstanding,
+        turn_count=conversations.turn_count(session_id),
+        has_contact=store.has_contact(captured), channel=channel)
+
+    messages: list[dict[str, Any]] = [
+        {"role": "system", "content": system},
+        *_to_openai_messages(history),
+    ]
+    ctx = tools.tool_context(portal_key=portal_key, session_id=session_id,
+                             language=language)
+    trace: list[dict[str, Any]] = []
+    citations: list[dict[str, Any]] = []
+
+    if _needs_retrieval(message):
+        portal_conf = registry.get(portal_key)
+        retrieved = retrieve.search(
+            message, portal_key=portal_key,
+            include_volatile=portal_conf.get("pricing_mode") in ("indicative", "live"))
+        messages.append({"role": "system", "content": prompts.knowledge_turn(
+            retrieve.format_passages(retrieved["passages"]), found=retrieved["found"])})
+        trace.append({"tool": "pre_retrieval", "input": {"query": message},
+                      "found": retrieved["found"]})
+        for passage in retrieved["passages"]:
+            citations.append({"document": passage.get("document"),
+                              "heading": passage.get("heading"),
+                              "similarity": passage.get("similarity")})
+        if not retrieved["found"]:
+            retrieve.log_gap(message, portal_key=portal_key, session_id=session_id,
+                             top_similarity=retrieved["top_similarity"], language=language)
+
+    messages.append({"role": "user", "content": message})
+
+    client = _client()
+    reply_text = ""
+    usage_in = usage_out = 0
+
+    try:
+        # --- streaming tool loop --------------------------------------------
+        for _ in range(MAX_TOOL_ROUNDS):
+            stream = client.chat.completions.create(
+                model=config.CHAT_MODEL, temperature=config.CHAT_TEMPERATURE,
+                messages=messages, tools=tools.openai_tools(), tool_choice="auto",
+                stream=True, stream_options={"include_usage": True})
+
+            content_parts: list[str] = []
+            tool_calls: dict[int, dict[str, str]] = {}
+            for chunk in stream:
+                if getattr(chunk, "usage", None):
+                    usage_in += chunk.usage.prompt_tokens or 0
+                    usage_out += chunk.usage.completion_tokens or 0
+                if not chunk.choices:
+                    continue
+                delta = chunk.choices[0].delta
+                if delta and delta.content:
+                    content_parts.append(delta.content)
+                    yield {"type": "delta", "text": delta.content}
+                if delta and delta.tool_calls:
+                    for tc in delta.tool_calls:
+                        slot = tool_calls.setdefault(
+                            tc.index, {"id": "", "name": "", "args": ""})
+                        if tc.id:
+                            slot["id"] = tc.id
+                        if tc.function and tc.function.name:
+                            slot["name"] += tc.function.name
+                        if tc.function and tc.function.arguments:
+                            slot["args"] += tc.function.arguments
+
+            if not tool_calls:
+                reply_text = "".join(content_parts).strip()
+                break
+
+            ordered = [tool_calls[i] for i in sorted(tool_calls)]
+            messages.append({
+                "role": "assistant",
+                "content": "".join(content_parts) or None,
+                "tool_calls": [
+                    {"id": c["id"] or f"call_{i}", "type": "function",
+                     "function": {"name": c["name"], "arguments": c["args"] or "{}"}}
+                    for i, c in enumerate(ordered)],
+            })
+            for i, c in enumerate(ordered):
+                name = c["name"]
+                try:
+                    args = json.loads(c["args"] or "{}")
+                except json.JSONDecodeError:
+                    args = {}
+                result = tools.execute(name, args, ctx)
+                found = result.get("found")
+                trace.append({"tool": name, "input": args, "found": found})
+                for source in result.get("sources") or []:
+                    citations.append(source)
+                conversations.add_message(session_id, "tool", None, channel=channel,
+                                          tool_name=name, tool_input=args,
+                                          tool_found=found)
+                yield {"type": "tool", "label": name, "found": found}
+                messages.append({
+                    "role": "tool", "tool_call_id": c["id"] or f"call_{i}",
+                    "content": json.dumps(result, ensure_ascii=False)[:12000]})
+        else:
+            # Tool budget exhausted: one final streamed answer, no tools.
+            stream = client.chat.completions.create(
+                model=config.CHAT_MODEL, temperature=config.CHAT_TEMPERATURE,
+                messages=[*messages, {"role": "system",
+                          "content": "Answer the visitor now, from what the tool "
+                          "results above contain. Do not call any more tools."}],
+                stream=True, stream_options={"include_usage": True})
+            parts: list[str] = []
+            for chunk in stream:
+                if getattr(chunk, "usage", None):
+                    usage_in += chunk.usage.prompt_tokens or 0
+                    usage_out += chunk.usage.completion_tokens or 0
+                if chunk.choices and chunk.choices[0].delta \
+                        and chunk.choices[0].delta.content:
+                    piece = chunk.choices[0].delta.content
+                    parts.append(piece)
+                    yield {"type": "delta", "text": piece}
+            reply_text = "".join(parts).strip()
+    except Exception as exc:  # noqa: BLE001
+        message_l = str(exc).lower()
+        if "insufficient_quota" in message_l or "exceeded your current quota" in message_l:
+            yield {"type": "error", "status": 503,
+                   "detail": "The OpenAI account has run out of quota. Top it up at "
+                             "platform.openai.com to restore the assistant."}
+        elif "rate_limit" in message_l or "429" in str(exc):
+            yield {"type": "error", "status": 429,
+                   "detail": "Rate-limited by OpenAI; retry shortly."}
+        else:
+            yield {"type": "error", "status": 500,
+                   "detail": f"{type(exc).__name__}: {exc}"}
+        return
+
+    result = _finalize(
+        reply_text=reply_text, citations=citations, trace=trace, history=history,
+        message=message, captured=captured, session_id=session_id,
+        portal_key=portal_key, language=language, channel=channel,
+        user_message_id=user_message_id, run_extraction=run_extraction,
+        usage_in=usage_in, usage_out=usage_out, remaining=remaining)
+    yield {"type": "done", **result}

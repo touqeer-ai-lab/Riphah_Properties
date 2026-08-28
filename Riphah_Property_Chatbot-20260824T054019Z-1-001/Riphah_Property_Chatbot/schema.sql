@@ -412,3 +412,34 @@ CREATE TABLE IF NOT EXISTS audit_log (
 );
 
 CREATE INDEX IF NOT EXISTS idx_audit_created ON audit_log(created_at DESC);
+
+-- ============================================================ 6. whatsapp
+-- Inbound WhatsApp (Meta Cloud API) rides on the same sessions, messages and
+-- leads as the web chat. These two tables are only the channel's bookkeeping:
+-- which phone maps to which conversation, and which Meta message ids have
+-- already been handled — Meta redelivers a webhook it did not get a 200 for,
+-- so without the second table one message could be answered twice.
+CREATE TABLE IF NOT EXISTS whatsapp_contacts (
+    wa_id           TEXT PRIMARY KEY,          -- E.164 digits, no '+', as Meta sends it
+    profile_name    TEXT,                      -- WhatsApp display name, not verified
+    session_id      TEXT REFERENCES chat_sessions(id) ON DELETE SET NULL,
+    portal_key      TEXT NOT NULL,
+    first_seen_at   TEXT NOT NULL,
+    last_message_at TEXT NOT NULL,
+    message_count   INTEGER NOT NULL DEFAULT 0
+);
+
+CREATE TABLE IF NOT EXISTS whatsapp_messages (
+    wa_message_id   TEXT PRIMARY KEY,          -- Meta's 'wamid.…'
+    wa_id           TEXT NOT NULL,
+    direction       TEXT NOT NULL,             -- in | out
+    session_id      TEXT,
+    message_type    TEXT,                      -- text | audio | image | document | …
+    status          TEXT,                      -- out: sent | delivered | read | failed
+    error           TEXT,
+    created_at      TEXT NOT NULL,
+    updated_at      TEXT NOT NULL
+);
+
+CREATE INDEX IF NOT EXISTS idx_whatsapp_messages_contact
+    ON whatsapp_messages(wa_id, created_at DESC);

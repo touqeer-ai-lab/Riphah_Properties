@@ -29,7 +29,7 @@ from portals import registry
 def _client():
     from openai import OpenAI
 
-    return OpenAI(api_key=config.openai_key())
+    return OpenAI(api_key=config.openai_key(), base_url=config.OPENAI_BASE_URL)
 
 
 # --------------------------------------------------------------- realtime path

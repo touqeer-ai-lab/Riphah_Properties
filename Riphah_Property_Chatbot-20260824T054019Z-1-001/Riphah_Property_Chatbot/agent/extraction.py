@@ -419,7 +419,7 @@ units — "2.5 crore" stays "2.5 crore".
 def _client():
     from openai import OpenAI
 
-    return OpenAI(api_key=config.openai_key())
+    return OpenAI(api_key=config.openai_key(), base_url=config.OPENAI_BASE_URL)
 
 
 def extract(portal_key: str, transcript: list[dict[str, Any]], *,

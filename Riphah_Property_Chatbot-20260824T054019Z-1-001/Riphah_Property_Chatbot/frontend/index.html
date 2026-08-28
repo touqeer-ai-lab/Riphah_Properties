@@ -496,6 +496,16 @@ const api = async (path, options = {}) => {
   return data;
 };
 
+/* A page left open across a server restart can hold a session id the server no
+   longer knows (empty sessions are pruned). Rather than show "No such session"
+   and strand the visitor, forget the id and rebuild from /api/bootstrap. */
+function recoverLostSession(error) {
+  if (!/no such session/i.test(error?.message || "")) return false;
+  localStorage.removeItem("riphah_session");
+  location.reload();
+  return true;
+}
+
 /* ------------------------------------------------------------------ rendering */
 
 /* Minimal markdown: bold, italic, inline code, links, bullet lists, pipe tables.
@@ -813,31 +823,116 @@ async function send(text) {
   addMessage("user", message);
 
   const pending = addMessage("assistant", "…", { id: "pending" });
-  pending.querySelector(".body").classList.add("thinking");
-  pending.querySelector(".body").textContent = "Looking that up…";
+  const body = pending.querySelector(".body");
+  body.classList.add("thinking");
+  body.textContent = "Typing…";
 
   try {
-    const data = await api("/api/chat", {
-      method: "POST",
-      body: JSON.stringify({
-        message, session_id: state.sessionId, portal: state.portal.key,
-      }),
-    });
-    pending.remove();
-    addToolNote(data.trace);
-    addMessage("assistant", data.answer, { citations: data.citations });
-    renderCaptured(data.captured);
-    if (data.lead?.lead_ref && data.lead.created) refreshHistory();
-    if (!$("history").querySelector(".hist")) refreshHistory();
+    const data = await streamChat(message, body);
+    // Repaint the final text as markdown with citations (the live stream is
+    // plain text for speed; the finished message gets the full treatment).
+    if (data && data.answer) {
+      pending.remove();
+      addMessage("assistant", data.answer, { citations: data.citations });
+    } else {
+      pending.remove();
+    }
+    if (data) {
+      addToolNoteBefore(data.trace);
+      renderCaptured(data.captured);
+      if (data.lead?.lead_ref && data.lead.created) refreshHistory();
+      if (!$("history").querySelector(".hist")) refreshHistory();
+    }
     return data;
   } catch (error) {
     pending.remove();
+    if (recoverLostSession(error)) return null;
     addMessage("assistant", `⚠️ ${error.message}`);
     return null;
   } finally {
     state.busy = false;
     $("sendBtn").disabled = false;
     $("input").focus();
+  }
+}
+
+/* Read the SSE stream, painting the reply into `body` as tokens arrive. Falls
+   back to the blocking /api/chat if the stream cannot start, so a proxy that
+   buffers event-streams never leaves the visitor without an answer. */
+async function streamChat(message, body) {
+  let response;
+  try {
+    response = await fetch("/api/chat/stream", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      credentials: "same-origin",
+      body: JSON.stringify({
+        message, session_id: state.sessionId, portal: state.portal.key,
+      }),
+    });
+  } catch {
+    return blockingChat(message);
+  }
+  if (!response.ok || !response.body) {
+    let detail = `Request failed (${response.status})`;
+    try { detail = (await response.json()).detail || detail; } catch {}
+    const error = new Error(detail);
+    if (response.status === 404) return blockingChat(message);
+    throw error;
+  }
+
+  const reader = response.body.getReader();
+  const decoder = new TextDecoder();
+  let buffer = "", answer = "", started = false, done = null, errored = null;
+
+  while (true) {
+    const { value, done: finished } = await reader.read();
+    if (finished) break;
+    buffer += decoder.decode(value, { stream: true });
+    // SSE frames are separated by a blank line.
+    let sep;
+    while ((sep = buffer.indexOf("\n\n")) !== -1) {
+      const frame = buffer.slice(0, sep);
+      buffer = buffer.slice(sep + 2);
+      const line = frame.split("\n").find((l) => l.startsWith("data:"));
+      if (!line) continue;
+      let event;
+      try { event = JSON.parse(line.slice(5).trim()); } catch { continue; }
+      if (event.type === "delta") {
+        if (!started) { body.classList.remove("thinking"); body.textContent = ""; started = true; }
+        answer += event.text;
+        body.textContent = answer;
+        scrollDown();
+      } else if (event.type === "done") {
+        done = event;
+      } else if (event.type === "error") {
+        errored = event;
+      }
+    }
+  }
+  if (errored) throw new Error(errored.detail || "Something went wrong.");
+  return done || { answer, citations: [], captured: null, trace: [], lead: {} };
+}
+
+async function blockingChat(message) {
+  return api("/api/chat", {
+    method: "POST",
+    body: JSON.stringify({
+      message, session_id: state.sessionId, portal: state.portal.key,
+    }),
+  });
+}
+
+/* The streamed answer is already on screen; the tool note belongs above it. */
+function addToolNoteBefore(trace) {
+  const nodes = $("logWrap").querySelectorAll(".msg.assistant");
+  const last = nodes[nodes.length - 1];
+  if (!last) { addToolNote(trace); return; }
+  const anchor = $("logWrap").lastElementChild;
+  addToolNote(trace);
+  const note = $("logWrap").lastElementChild;
+  if (note && note !== anchor && note.classList.contains("tool")) {
+    $("logWrap").insertBefore(note, last);
   }
 }
 
@@ -908,6 +1003,7 @@ async function startCall() {
       body: JSON.stringify({ session_id: state.sessionId, portal: state.portal.key }),
     });
   } catch (error) {
+    if (recoverLostSession(error)) return;
     resetVoiceUI(`Could not start the voice agent: ${error.message}`);
     return;
   }

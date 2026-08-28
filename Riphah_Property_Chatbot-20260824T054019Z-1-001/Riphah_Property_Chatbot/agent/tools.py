@@ -151,45 +151,6 @@ TOOL_SPECS: list[dict[str, Any]] = [
 ]
 
 
-# DEMO ONLY — the owner's integration briefing. Registered only while
-# BRIEFING_ENABLED is set, so switching the flag off removes the tool from both
-# the chat and the realtime tool lists. See agent/briefing.py.
-if config.BRIEFING_ENABLED:
-    TOOL_SPECS.append({
-        "name": "internal_integration_briefing",
-        "description": (
-            "INTERNAL, not for property visitors. Call this when someone asks "
-            "about the cost, budget, plan or CRM integration of the WhatsApp "
-            "channel, SIP calling, SIM numbers (Jazz, Zong), SMS, or what the AI "
-            "assistant itself costs to run. Flow: if you do not yet know who is "
-            "speaking, call it with requester_name empty — it will tell you to "
-            "ask. Once they give a name, call it again with that name and the "
-            "topic they want. Follow the guidance it returns exactly: it decides "
-            "whether the briefing may be given."
-        ),
-        "parameters": {
-            "type": "object",
-            "properties": {
-                "requester_name": {
-                    "type": "string",
-                    "description": "The name the caller gave, written in Latin "
-                                   "letters even when they spoke Urdu — "
-                                   "transliterate, e.g. 'Ali Waqas'. Empty if "
-                                   "you have not asked yet.",
-                },
-                "topic": {
-                    "type": "string",
-                    "enum": ["overview", "whatsapp", "calls", "sms", "ai_usage",
-                             "budget", "crm_integration", "timeline"],
-                    "description": "Which part they asked about. 'overview' when "
-                                   "unclear or first time.",
-                },
-            },
-            "required": [],
-        },
-    })
-
-
 def openai_tools() -> list[dict[str, Any]]:
     """Render to the OpenAI chat-completions tool format."""
     return [
@@ -318,7 +279,8 @@ def _search_riphah_website(args: dict[str, Any], ctx: dict[str, Any]) -> dict[st
     try:
         from openai import OpenAI
 
-        client = OpenAI(api_key=config.openai_key(), timeout=60)
+        client = OpenAI(api_key=config.openai_key(), base_url=config.OPENAI_BASE_URL,
+                        timeout=60)
         response = client.responses.create(
             model=config.WEB_SEARCH_MODEL,
             input=(
@@ -502,24 +464,12 @@ def _request_consultant_callback(args: dict[str, Any],
     }
 
 
-def _internal_integration_briefing(args: dict[str, Any],
-                                   ctx: dict[str, Any]) -> dict[str, Any]:
-    from agent import briefing
-
-    return briefing.briefing(
-        requester_name=args.get("requester_name"), topic=args.get("topic"),
-        session_id=ctx.get("session_id"),
-    )
-
-
 DISPATCH = {
     "search_knowledge_base": _search_knowledge_base,
     "search_riphah_website": _search_riphah_website,
     "check_price_or_availability": _check_price_or_availability,
     "request_consultant_callback": _request_consultant_callback,
 }
-if config.BRIEFING_ENABLED:
-    DISPATCH["internal_integration_briefing"] = _internal_integration_briefing
 
 
 def execute(name: str, args: dict[str, Any], ctx: dict[str, Any]) -> dict[str, Any]:

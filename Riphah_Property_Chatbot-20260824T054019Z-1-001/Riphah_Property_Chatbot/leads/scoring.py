@@ -56,15 +56,21 @@ _SPAM_MARKERS = (
 
 def spam_signals(*, contact: dict[str, Any], messages: list[dict[str, Any]],
                  turn_count: int) -> list[str]:
-    """Reasons to treat this as spam. Empty list means it isn't."""
+    """Reasons to treat this as spam. Empty list means it isn't.
+
+    A disposable email (yopmail, mailinator…) is deliberately NOT a spam signal.
+    A real buyer often uses a throwaway address to avoid marketing, and hiding
+    their lead loses a genuine enquiry — a far worse error than showing one that
+    turns out to be junk. It is surfaced as a soft flag in the score detail
+    instead (see `score`), so a consultant knows to get a phone number, and the
+    lead stays visible. Only an *unparseable* email is spam, because that is not
+    a contact route at all.
+    """
     reasons: list[str] = []
 
     email = contact.get("email")
-    if email:
-        if not security.normalise_email(email):
-            reasons.append("email_invalid")
-        elif security.is_disposable_email(email):
-            reasons.append("email_disposable")
+    if email and not security.normalise_email(email):
+        reasons.append("email_invalid")
     if contact.get("phone") and not security.normalise_phone(contact["phone"]):
         reasons.append("phone_invalid")
 
@@ -133,8 +139,13 @@ def score(*, rules: dict[str, Any], contact: dict[str, Any],
     # --- contact reachability ----------------------------------------------
     has_email = bool(security.normalise_email(contact.get("email")))
     has_phone = bool(security.normalise_phone(contact.get("phone")))
+    # A disposable email still counts as an email, but it is a weak route — flag
+    # it so a consultant asks for a phone number rather than trusting a mailbox
+    # that may not be read. Not a spam signal; the lead stays visible.
+    disposable_email = has_email and security.is_disposable_email(contact.get("email"))
     if has_email:
-        award("has_email", _weight(weights, "has_email"))
+        note = "disposable — get a phone number" if disposable_email else ""
+        award("has_email", _weight(weights, "has_email"), note)
     if has_phone:
         award("has_phone", _weight(weights, "has_phone"))
     if security.looks_like_real_name(contact.get("name")):
@@ -232,6 +243,7 @@ def score(*, rules: dict[str, Any], contact: dict[str, Any],
             "thresholds": thresholds,
             "has_email": has_email,
             "has_phone": has_phone,
+            "disposable_email": disposable_email,
             "demoted_by": demoted,
             "rules_fired": detail,
         },

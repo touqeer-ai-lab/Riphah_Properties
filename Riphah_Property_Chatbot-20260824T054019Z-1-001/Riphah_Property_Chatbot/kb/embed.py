@@ -21,7 +21,7 @@ MAX_CHARS = 8000        # ~2k tokens; over-long passages are truncated, not reje
 def client():
     from openai import OpenAI
 
-    return OpenAI(api_key=config.openai_key())
+    return OpenAI(api_key=config.openai_key(), base_url=config.OPENAI_BASE_URL)
 
 
 def embed_texts(texts: list[str]) -> list[list[float]]:

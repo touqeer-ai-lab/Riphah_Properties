@@ -11,6 +11,7 @@ Route groups:
   /api/voice/*              realtime credential, transcribe, speak
   /api/tools/{name}         tool bridge for the browser's Realtime data channel
   /api/admin/*              KB documents, gaps, portal config, API keys
+  /api/webhooks/whatsapp    Meta Cloud API: GET handshake, POST messages (channels/whatsapp.py)
   /api/v1/*                 the CRM integration surface (leads/api.py)
 
 Identity is two-layered and both layers are cookies set here. A `visitor_id`
@@ -21,15 +22,16 @@ mid-conversation signup from appearing to erase the conversation.
 """
 from __future__ import annotations
 
+import json
 import uuid
 from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import Any
 
-from fastapi import (APIRouter, Cookie, Depends, FastAPI, File, Form, Header,
-                     HTTPException, Request, Response, UploadFile)
+from fastapi import (APIRouter, BackgroundTasks, Cookie, Depends, FastAPI, File,
+                     Form, Header, HTTPException, Request, Response, UploadFile)
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import FileResponse, JSONResponse
+from fastapi.responses import FileResponse, JSONResponse, StreamingResponse
 from pydantic import BaseModel, Field
 
 import config
@@ -447,6 +449,38 @@ def post_chat(payload: ChatRequest,
         raise HTTPException(500, f"{type(exc).__name__}: {exc}") from exc
 
 
+@app.post("/api/chat/stream")
+def post_chat_stream(payload: ChatRequest,
+                     user: dict[str, Any] | None = Depends(current_user),
+                     visitor: str | None = Depends(current_visitor),
+                     service: dict[str, Any] | None = Depends(service_caller)):
+    """Streaming twin of /api/chat, as Server-Sent Events.
+
+    Emits one `data: {json}\\n\\n` line per event — tool notices, then the reply
+    token-by-token as `delta`, then a final `done` carrying citations, the lead
+    and the captured fields (the same body /api/chat returns). Same ownership and
+    sign-in guards as the blocking endpoint; errors arrive as an `error` event
+    rather than an HTTP status, because the stream has already begun 200.
+    """
+    _guard_auth_required(payload.portal, user, service)
+    _guard_session(payload.session_id, user, visitor, service)
+
+    def events():
+        try:
+            for event in chat.answer_stream(
+                payload.message, session_id=payload.session_id,
+                portal_key=payload.portal, language=payload.language,
+                channel=payload.channel,
+            ):
+                yield f"data: {json.dumps(event, ensure_ascii=False)}\n\n"
+        except Exception as exc:  # noqa: BLE001
+            yield f"data: {json.dumps({'type': 'error', 'detail': f'{type(exc).__name__}: {exc}'})}\n\n"
+
+    return StreamingResponse(events(), media_type="text/event-stream", headers={
+        "Cache-Control": "no-cache", "X-Accel-Buffering": "no",
+    })
+
+
 class ConsentRequest(BaseModel):
     session_id: str
     granted: bool = True
@@ -837,6 +871,62 @@ def admin_sweep(_: dict[str, Any] = Depends(require_admin)) -> dict[str, Any]:
 
 
 app.include_router(admin_router)
+
+
+# ------------------------------------------------------------------ whatsapp
+
+@app.get("/api/webhooks/whatsapp")
+def whatsapp_verify(request: Request) -> Response:
+    """Meta's one-time handshake when the webhook URL is saved in the dashboard.
+
+    Meta calls GET ?hub.mode=subscribe&hub.verify_token=…&hub.challenge=… and
+    expects the challenge echoed back as plain text — only if the token matches.
+    """
+    from channels import whatsapp
+
+    params = request.query_params
+    challenge = whatsapp.verification_challenge(
+        params.get("hub.mode"), params.get("hub.verify_token"),
+        params.get("hub.challenge"),
+    )
+    if challenge is None:
+        raise HTTPException(403, "Verification token mismatch.")
+    return Response(content=challenge, media_type="text/plain")
+
+
+@app.post("/api/webhooks/whatsapp")
+async def whatsapp_webhook(request: Request,
+                           background: BackgroundTasks) -> dict[str, Any]:
+    """Inbound messages and delivery statuses.
+
+    Verified over the RAW body, then acknowledged immediately and processed in
+    the background: Meta retries any delivery not answered within a few
+    seconds, and a model call takes longer than that. Dedupe by message id in
+    channels/whatsapp.py is what makes the retry harmless.
+    """
+    from channels import whatsapp
+
+    raw = await request.body()
+    if not whatsapp.verify_signature(raw, request.headers.get("x-hub-signature-256")):
+        db.audit("system", "whatsapp.rejected", detail={
+            "reason": "signature" if config.WHATSAPP_APP_SECRET else "app_secret_unset",
+            "bytes": len(raw)})
+        raise HTTPException(401, "Invalid X-Hub-Signature-256.")
+    try:
+        payload = json.loads(raw or b"{}")
+    except json.JSONDecodeError as exc:
+        raise HTTPException(400, "Body is not JSON.") from exc
+    if payload.get("object") not in (None, "whatsapp_business_account"):
+        return {"ignored": payload.get("object")}
+    background.add_task(whatsapp.handle_webhook, payload)
+    return {"accepted": True}
+
+
+@admin_router.get("/whatsapp/status")
+def admin_whatsapp_status(_: dict[str, Any] = Depends(require_admin)) -> dict[str, Any]:
+    from channels import whatsapp
+
+    return {**whatsapp.status(), "recent": whatsapp.recent_conversations(limit=30)}
 
 
 # ------------------------------------------------------------------- frontend

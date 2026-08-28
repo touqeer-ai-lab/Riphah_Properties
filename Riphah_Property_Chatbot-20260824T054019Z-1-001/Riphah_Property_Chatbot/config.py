@@ -45,19 +45,6 @@ CHAT_TEMPERATURE = float(os.getenv("CHAT_TEMPERATURE", "0.3"))
 # Extraction is a data path. Determinism matters more than fluency.
 EXTRACT_TEMPERATURE = float(os.getenv("EXTRACT_TEMPERATURE", "0.0"))
 
-# --- internal integration briefing (DEMO — remove before go-live) ------------
-# A spoken/typed briefing for the project owner about the WhatsApp, SIP/SIM
-# (Jazz/Zong) and messaging channels: what they cost, how they plug into the CRM.
-# The assistant asks who is speaking and only delivers it to a name on this list.
-# Set BRIEFING_ENABLED=0 (or delete these lines) when the project goes live — the
-# tool, the prompt block and the audit entries all switch off together.
-BRIEFING_ENABLED = os.getenv("BRIEFING_ENABLED", "0") not in ("0", "false", "no", "")
-BRIEFING_AUTHORISED_NAMES = [
-    name.strip() for name in os.getenv(
-        "BRIEFING_AUTHORISED_NAMES", "Ali Waqas, علی وقاص").split(",")
-    if name.strip()
-]
-
 # --- chunking -----------------------------------------------------------------
 CHUNK_TARGET_CHARS = 1400
 CHUNK_OVERLAP_CHARS = 200
@@ -118,6 +105,32 @@ ALLOWED_ORIGINS = [
 ]
 
 DEFAULT_PORTAL = os.getenv("DEFAULT_PORTAL", "riphah-property")
+
+# --- WhatsApp inbound (Meta Cloud API) ----------------------------------------
+# Same brain, second channel: a WhatsApp message runs through the identical
+# retrieve → answer → extract → lead → CRM path as the web chat. Only the
+# transport differs. Five values from the Meta app dashboard:
+#   WHATSAPP_VERIFY_TOKEN     our choice; Meta echoes it during webhook setup
+#   WHATSAPP_APP_SECRET       App → Settings → Basic — verifies X-Hub-Signature-256
+#   WHATSAPP_ACCESS_TOKEN     temporary (24 h) in the sandbox, system-user in prod
+#   WHATSAPP_PHONE_NUMBER_ID  WhatsApp → API Setup — the sending number's id
+#   WHATSAPP_BUSINESS_ACCOUNT_ID (WABA) — informational, used by status output
+# With APP_SECRET unset the webhook rejects every POST — an unverified inbound
+# message is an unauthenticated write into the lead pipeline.
+WHATSAPP_VERIFY_TOKEN = os.getenv("WHATSAPP_VERIFY_TOKEN", "")
+WHATSAPP_APP_SECRET = os.getenv("WHATSAPP_APP_SECRET", "")
+WHATSAPP_ACCESS_TOKEN = os.getenv("WHATSAPP_ACCESS_TOKEN", "")
+WHATSAPP_PHONE_NUMBER_ID = os.getenv("WHATSAPP_PHONE_NUMBER_ID", "")
+WHATSAPP_BUSINESS_ACCOUNT_ID = os.getenv("WHATSAPP_BUSINESS_ACCOUNT_ID", "")
+WHATSAPP_API_VERSION = os.getenv("WHATSAPP_API_VERSION", "v21.0")
+WHATSAPP_PORTAL = os.getenv("WHATSAPP_PORTAL", DEFAULT_PORTAL)
+
+# --- model endpoint -----------------------------------------------------------
+# Leave unset for OpenAI. Point it at any OpenAI-compatible server — vLLM or
+# Ollama serving Qwen, for example: OPENAI_BASE_URL=http://127.0.0.1:8000/v1 —
+# and set CHAT_MODEL / EXTRACT_MODEL to the model names that server exposes.
+# Embeddings and voice still need a provider that offers them.
+OPENAI_BASE_URL = os.getenv("OPENAI_BASE_URL", "").strip() or None
 
 # --- web search fallback ------------------------------------------------------
 # Used only when the approved knowledge base has nothing. It is domain-limited on
